@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Note - Acme Notes</title><link rel="stylesheet" href="/app.css"><script src="/app.js"></script></head>
+<body>
+  <header><span class="brand">Acme Notes</span><a href="/">Notes</a><a href="/settings">Settings</a><a href="/about">About</a></header>
+  <main>
+    <p><a href="/" data-testid="back-to-notes">&larr; All notes</a></p>
+    <article id="note" data-testid="note-detail"><p>Loading...</p></article>
+  </main>
+  <script>
+    const id = new URLSearchParams(location.search).get('id');
+    acme.getJson(`/api/notes/${encodeURIComponent(id)}`).then(note => {
+      document.title = `${note.title} - Acme Notes`;
+      document.getElementById('note').innerHTML = `<h1 data-testid="note-title">${acme.escape(note.title)}</h1>
+        <div>${note.tags.map(t => `<span class="tag">${acme.escape(t)}</span>`).join('')}</div>
+        <p data-testid="note-body">${acme.escape(note.body)}</p>
+        <p style="color:#666;font-size:13px">Updated ${new Date(note.updatedAt).toLocaleString()}</p>`;
+    }).catch(() => {
+      document.getElementById('note').innerHTML = '<h1>Note not found</h1><p>It may have been deleted.</p>';
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Settings - Acme Notes</title><link rel="stylesheet" href="/app.css"><script src="/app.js"></script></head>
+<body>
+  <header><span class="brand">Acme Notes</span><a href="/">Notes</a><a href="/settings">Settings</a><a href="/about">About</a></header>
+  <main>
+    <h1>Settings</h1>
+    <form id="settings-form" data-testid="settings-form">
+      <label for="display-name">Display name</label><input id="display-name" data-testid="display-name" value="Sam Example">
+      <label for="theme">Theme</label>
+      <select id="theme" data-testid="theme"><option value="light">Light</option><option value="dark">Dark</option></select>
+      <label><input type="checkbox" id="weekly-digest" style="width:auto"> Email me a weekly digest</label>
+      <p><button id="save-settings" data-testid="save-settings" type="submit">Save settings</button></p>
+      <div id="status" data-testid="settings-status" role="status"></div>
+    </form>
+  </main>
+  <script>
+    document.getElementById('settings-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const status = document.getElementById('status');
+      status.className = '';
+      status.textContent = 'Saving...';
+      const response = await fetch('/api/settings', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ displayName: document.getElementById('display-name').value, theme: document.getElementById('theme').value }) });
+      const result = await response.json();
+      // Bug: the success path is assumed; the error payload has no "settings" key.
+      status.textContent = `Saved. Theme is now ${result.settings.theme}.`;
+      status.className = 'ok';
+    });
+  </script>
+</body>
+</html>
