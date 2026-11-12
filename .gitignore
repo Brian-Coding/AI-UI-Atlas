@@ -1,0 +1,17 @@
+node_modules/
+coverage/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+
+# Local secrets never belong in this repository.
+.env
+.env.*
+
+# Per-project run data written by atlas-qa (also self-ignored inside the folder).
+.atlas-qa/
+# In-progress Atlas candidates and publication staging.
+docs/.ui-atlas-candidates/
+docs/.ui-atlas-publish-*/
+docs/.ui-atlas-rollback-*/

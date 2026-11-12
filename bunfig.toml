@@ -1,0 +1,4 @@
+[test]
+coverageSkipTestFiles = true
+# Some tests start a real HTTP server or a Node subprocess.
+timeout = 30000

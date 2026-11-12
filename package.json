@@ -1,0 +1,40 @@
+{
+  "name": "ui-atlas-qa",
+  "version": "0.1.0",
+  "description": "Map a web app into a queryable UI Atlas and run evidence-backed browser QA with Claude Code or Codex.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "atlas-qa": "src/cli/main.ts"
+  },
+  "scripts": {
+    "cli": "bun src/cli/main.ts",
+    "atlas": "bun src/cli/main.ts atlas",
+    "qa": "bun src/cli/main.ts qa",
+    "serve": "bun src/cli/main.ts serve",
+    "doctor": "bun src/cli/main.ts doctor",
+    "demo": "bun examples/demo-app/server.ts",
+    "demo:tour": "bun examples/demo-app/tour.ts",
+    "browsers:install": "playwright install chromium",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "check": "bun run typecheck && bun test"
+  },
+  "dependencies": {
+    "marked": "^15.0.12",
+    "playwright": "~1.62.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "bun": ">=1.2.0",
+    "node": ">=20"
+  }
+}
