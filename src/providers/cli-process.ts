@@ -21,6 +21,7 @@ export interface CliRunOptions {
   onEvent(event: any): void;
   /** Raw stdout lines are appended here when set. */
   transcriptPath?: string;
+  redactValues?: string[];
 }
 
 export interface CliRunOutcome {
@@ -52,6 +53,7 @@ export async function runCliAgent(options: CliRunOptions): Promise<CliRunOutcome
     if (!options.transcriptPath) return;
     try {
       mkdirSync(dirname(options.transcriptPath), { recursive: true });
+      for (const value of options.redactValues ?? []) if (value) line = line.split(value).join('<redacted-token>');
       appendFileSync(options.transcriptPath, line.endsWith('\n') ? line : `${line}\n`);
     } catch { /* transcripts are best effort */ }
   };

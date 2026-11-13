@@ -31,7 +31,7 @@ async function getJson<T>(url: string): Promise<T> {
 
 const atlasFileUrl = (relPath: string) => `/api/atlas/file?relPath=${encodeURIComponent(relPath)}`;
 const runShotUrl = (runId: string, path: string) =>
-  `/api/qa/runs/${encodeURIComponent(runId)}/screenshots/${encodeURIComponent(path.split(/[\\/]/).pop() || '')}`;
+  `/api/qa/runs/${encodeURIComponent(runId)}/screenshots/${encodeURIComponent(path.replace(/\\/g, '/').split('/screenshots/').slice(1).join('/screenshots/'))}`;
 
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]!));
@@ -43,7 +43,8 @@ marked.use({
   renderer: {
     html(token: Tokens.HTML | Tokens.Tag) { return escapeHtml(token.text); },
     link(token: Tokens.Link) {
-      const href = /^(https?:|#|\/|\.{0,2}\/?[\w-])/i.test(token.href) && !/^\s*javascript:/i.test(token.href) ? token.href : '#';
+      const clean = token.href.trim();
+      const href = /^(https?:\/\/|#)/i.test(clean) || (!/[:\\\s]/.test(clean) && !clean.startsWith('//')) ? clean : '#';
       return `<a href="${escapeHtml(href)}" rel="noreferrer noopener">${this.parser.parseInline(token.tokens)}</a>`;
     },
     image(token: Tokens.Image) {
@@ -165,11 +166,11 @@ function ListAndDetail<T extends { id: string; name: string }>({ items, selected
 }) {
   const [filter, setFilter] = useState('');
   const visible = items.filter(item => matchesFilter(item, filter));
-  const current = items.find(item => item.id === selected) ?? visible[0];
+  const current = visible.find(item => item.id === selected) ?? visible[0];
   return (
     <div className="split">
       <div>
-        <input className="search" placeholder="Filter..." value={filter} onChange={e => setFilter(e.target.value)} />
+        <input className="search" aria-label="Filter records" placeholder="Filter..." value={filter} onChange={e => setFilter(e.target.value)} />
         <div className="list">
           {visible.map(item => (
             <button key={item.id} className={`list-item ${current?.id === item.id ? 'selected' : ''}`} onClick={() => onSelect(item.id)}>
@@ -209,7 +210,7 @@ function QueryView({ project, onNavigate }: { project: ProjectInfo; onNavigate: 
   return (
     <div>
       <div className="row">
-        <input className="search" style={{ marginBottom: 0 }} placeholder='e.g. "where is the note title shown?"' value={question}
+        <input className="search" aria-label="Ask Atlas" style={{ marginBottom: 0 }} placeholder='e.g. "where is the note title shown?"' value={question}
           onChange={e => setQuestion(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && question.trim()) void runLocal(); }} />
         <button className="btn primary" disabled={!question.trim()} onClick={runLocal}>Search atlas</button>
         <button className="btn" disabled={!question.trim() || busy || !project.askEnabled} onClick={runAsk}
@@ -268,9 +269,9 @@ function RunsView() {
       <thead><tr><th>Verdict</th><th>Goal</th><th>Target</th><th>Findings</th><th>When</th></tr></thead>
       <tbody>
         {runs.map(run => (
-          <tr key={run.id} onClick={() => setSelected(run.id)}>
+          <tr key={run.id}>
             <td className={`badge verdict-${run.verdict ?? 'inconclusive'}`}>{(run.verdict ?? run.status).toUpperCase()}</td>
-            <td>{run.goal.length > 120 ? `${run.goal.slice(0, 120)}...` : run.goal}<div className="meta">{run.summary}</div></td>
+            <td><button className="run-link" onClick={() => setSelected(run.id)}>{run.goal.length > 120 ? `${run.goal.slice(0, 120)}...` : run.goal}</button><div className="meta">{run.summary}</div></td>
             <td><code>{run.url}</code></td>
             <td>{run.findingCount}</td>
             <td>{ago(run.createdAt)}</td>
@@ -291,6 +292,7 @@ function RunDetail({ id, onBack }: { id: string; onBack: () => void }) {
   return (
     <div>
       <button className="btn" onClick={onBack}>Back to runs</button>
+      {' '}<a className="btn" href={`/api/qa/runs/${encodeURIComponent(id)}/report`} download={`qa-${id}.md`}>Download report</a>
       <div className="detail" style={{ marginTop: 12 }}>
         <h2><span className={`verdict-${run.verdict ?? 'inconclusive'}`}>{(run.verdict ?? run.status).toUpperCase()}</span> {run.summary}</h2>
         <dl>
@@ -316,6 +318,10 @@ function RunDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <figure key={s.id}><img className="shot" src={runShotUrl(run.id, s.ref!)} alt={s.label} /><figcaption>{s.label}</figcaption></figure>
           ))}</div>
         </>}
+        {!!run.evidence?.length && <>
+          <h3>Evidence details</h3>
+          {run.evidence.filter(e => e.kind !== 'screenshot').map(e => <p key={e.id}><strong>{e.label}</strong>{e.detail ? `: ${e.detail}` : ''}</p>)}
+        </>}
       </div>
     </div>
   );
@@ -325,7 +331,7 @@ function RunDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
 const TABS = [
   ['overview', 'Overview'], ['surfaces', 'Surfaces'], ['entities', 'Entities'], ['flows', 'Flows'],
-  ['gallery', 'Gallery'], ['document', 'Document'], ['query', 'Query'], ['runs', 'QA runs'],
+  ['gallery', 'Gallery'], ['document', 'Document'], ['query', 'Ask Atlas'], ['runs', 'QA runs'],
 ] as const;
 type Tab = typeof TABS[number][0];
 

@@ -5,6 +5,7 @@
 // Playwright's launch has been unreliable under Bun on some platforms.
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { fetchWithTimeout, readJsonResponseWithTimeout } from '../core/external-io';
 import { terminateNodeChildProcess, waitForNodeChildExit } from '../core/node-child-process';
@@ -64,6 +65,7 @@ export class WorkerBrowserDriver implements BrowserDriver {
   private port: number | null = null;
   private ready: Promise<void> | null = null;
   private closing: Promise<void> | null = null;
+  private readonly token = randomBytes(32).toString('hex');
 
   constructor(private readonly options: WorkerBrowserDriverOptions = {}) {}
 
@@ -87,7 +89,7 @@ export class WorkerBrowserDriver implements BrowserDriver {
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
         detached: process.platform !== 'win32',
-        env: { ...buildBrowserWorkerEnv(process.env), ...(this.options.env ?? {}) },
+        env: { ...buildBrowserWorkerEnv(process.env), ...(this.options.env ?? {}), ATLAS_QA_WORKER_TOKEN: this.token },
       });
       this.proc = proc;
       let settled = false;
@@ -182,9 +184,10 @@ export class WorkerBrowserDriver implements BrowserDriver {
   ): Promise<any> {
     if (this.ready) await this.ready;
     if (this.port == null) throw new Error('Browser worker is not running');
-    const init: RequestInit = { method };
+    const headers: Record<string, string> = { 'x-atlas-worker-token': this.token };
+    const init: RequestInit = { method, headers };
     if (method === 'POST') {
-      init.headers = { 'content-type': 'application/json' };
+      headers['content-type'] = 'application/json';
       init.body = JSON.stringify(body ?? {});
     }
     const label = `Browser worker ${method} ${pathname.split('?')[0]}`;

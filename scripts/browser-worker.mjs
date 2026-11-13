@@ -14,6 +14,7 @@
 // forwarding it here.
 
 import { createServer } from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { chromium } from 'playwright';
@@ -33,6 +34,9 @@ const EVALUATE_TIMEOUT_MS = 15_000;
 const NAVIGATE_TIMEOUT_MS = 20_000;
 const ACTION_TIMEOUT_MS = 10_000;
 const JSON_BODY_LIMIT_BYTES = 1024 * 1024;
+const WORKER_TOKEN = process.env.ATLAS_QA_WORKER_TOKEN;
+if (!WORKER_TOKEN) throw new Error('The browser worker must be started by atlas-qa');
+delete process.env.ATLAS_QA_WORKER_TOKEN;
 
 // Contexts unused for longer than CONTEXT_IDLE_MS are closed by a periodic
 // sweep so long sessions do not accumulate retained DOM, GPU textures, etc.
@@ -385,6 +389,12 @@ const handlers = {
 
 const server = createServer(async (req, res) => {
   try {
+    const supplied = Buffer.from(String(req.headers['x-atlas-worker-token'] ?? ''));
+    const expected = Buffer.from(WORKER_TOKEN);
+    if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+      return send(res, 401, { ok: false, error: 'Invalid worker token' });
+    }
+    if (req.headers.origin) return send(res, 403, { ok: false, error: 'Browser origins are not allowed' });
     const url = new URL(req.url, 'http://127.0.0.1');
     const handler = handlers[`${req.method} ${url.pathname}`];
     if (!handler) return send(res, 404, { ok: false, error: `No handler for ${req.method} ${url.pathname}` });

@@ -32,6 +32,7 @@ try {
   });
   log(`   Atlas ${atlas.status}: ${atlas.surfaceCount} surfaces, ${atlas.entityCount} entities -> ${join(projectDir, 'docs', 'ui-atlas')}`);
   for (const error of atlas.validationErrors ?? []) log(`   ! ${error}`);
+  if (atlas.status !== 'completed') throw new Error('Demo Atlas did not publish successfully');
 
   log('\n2) Running a scripted QA pass against the settings page...');
   const qa = await runQa({
@@ -46,6 +47,9 @@ try {
   log(`   ${qa.run.verdict?.toUpperCase()}: ${qa.run.summary}`);
   for (const finding of qa.run.findings ?? []) log(`   - [${finding.severity}] ${finding.title}`);
   log(`   Report: ${qa.reportPath}`);
+  if (qa.run.status !== 'completed' || qa.run.verdict !== 'fail' || !qa.run.atlasUsed) {
+    throw new Error('Demo QA did not detect the intentional settings bug using the Atlas');
+  }
 
   log('\nNext: bun run serve examples/demo-app   (browse the atlas and the QA run)');
   log('      bun run atlas query -p examples/demo-app "where are tags shown?"');

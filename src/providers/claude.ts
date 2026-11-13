@@ -135,6 +135,7 @@ export class ClaudeProvider implements AgentProvider {
         timeoutMs: task.timeoutMs,
         signal: task.signal,
         transcriptPath: task.transcriptPath,
+        redactValues: task.runtime.token ? [task.runtime.token] : [],
         onEvent: event => handleClaudeEvent(event, state, task.onProgress),
       });
       const finalText = state.finalText || state.lastAssistantText;

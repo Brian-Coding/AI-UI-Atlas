@@ -161,6 +161,7 @@ export class CodexProvider implements AgentProvider {
         timeoutMs: task.timeoutMs,
         signal: task.signal,
         transcriptPath: task.transcriptPath,
+        redactValues: task.runtime.token ? [task.runtime.token] : [],
         onEvent: event => handleCodexEvent(event, state, task.onProgress),
       });
       let finalText = '';

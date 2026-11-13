@@ -4,8 +4,8 @@
 // validated wrapper around a BrowserDriver.
 
 import { existsSync } from 'node:fs';
-import { realpath } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { lstat, realpath } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import type { BrowserDriver } from '../browser/driver';
 import { readJsonBody, RequestBodyError } from '../core/request-body';
 import { isPathInside, isSafeId, safeSegment } from '../core/paths';
@@ -105,12 +105,20 @@ export function createBrowserApi(options: BrowserApiOptions) {
       if (grant?.runId && grant.runId !== body.runId) throw new BadRequest('runId does not match this browser session', 403);
     }
     const root = grant?.screenshotDir ?? join(resolve(options.adhocScreenshotRoot), safeSegment(sessionId, 'default'));
-    if (typeof body.outDir !== 'string' || !body.outDir.trim()) return root;
-
     // An explicit outDir is accepted only when it stays inside the session's
     // own screenshot root, lexically and after resolving symlinks.
-    const requested = resolve(body.outDir.trim());
+    const requested = typeof body.outDir === 'string' && body.outDir.trim() ? resolve(body.outDir.trim()) : root;
     if (!isPathInside(root, requested)) throw new BadRequest('outDir must be inside this session\'s screenshot directory', 403);
+    // Check existing ancestors too: a new subdirectory under a symlink must
+    // not bypass confinement just because the final directory is absent.
+    for (let current = requested; ; current = dirname(current)) {
+      const info = await lstat(current).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      if (info?.isSymbolicLink()) throw new BadRequest('Screenshot directories cannot contain symlinks', 403);
+      if (current === root) break;
+    }
     if (existsSync(requested) && existsSync(root)) {
       const [realRoot, realRequested] = await Promise.all([realpath(root), realpath(requested)]);
       if (!isPathInside(realRoot, realRequested)) throw new BadRequest('outDir resolves outside this session\'s screenshot directory', 403);

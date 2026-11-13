@@ -266,7 +266,7 @@ async function executeAtlasTurn(
       systemPrompt,
       prompt,
       cwd: projectDir,
-      model: options.model,
+      model: state.model,
       reasoningEffort: options.reasoningEffort,
       timeoutMs: options.timeoutMs ?? DEFAULT_ATLAS_TIMEOUT_MS,
       signal: options.signal,
@@ -286,6 +286,7 @@ async function executeAtlasTurn(
     });
     interrupted = result.timedOut || result.aborted;
     if (result.error) executionError = result.error.slice(0, 2000);
+    else if (result.exitCode !== 0 && !interrupted) executionError = `Provider exited with code ${result.exitCode}`;
   } catch (error) {
     executionError = error instanceof Error ? error.message : String(error);
   } finally {
@@ -312,7 +313,7 @@ async function finalizeAtlasRun(
   });
   outcome.onPhase?.(state.phase, state);
   const validation = await validateAtlasCandidate(projectDir, state.id);
-  if (!validation.valid) {
+  if (!validation.valid || outcome.interrupted || outcome.executionError) {
     const paused = outcome.interrupted;
     return writeState(projectDir, {
       ...state,

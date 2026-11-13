@@ -37,6 +37,13 @@ main { padding: 20px; max-width: 1280px; width: 100%; margin: 0 auto; }
 .detail dl { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; }
 .detail dt { color: var(--muted); }
 .detail dd { margin: 0; }
+.detail, .detail dd { min-width: 0; overflow-wrap: anywhere; }
+.run-link { color: var(--accent); background: none; border: 0; padding: 0; text-align: left; cursor: pointer; }
+@media (max-width: 600px) {
+  main { padding: 12px; overflow-x: auto; }
+  .topbar, .row { flex-wrap: wrap; }
+  .detail dl { grid-template-columns: 90px minmax(0, 1fr); }
+}
 .shot { max-width: 100%; border: 1px solid var(--border); border-radius: 6px; margin: 8px 0; background: #fff; }
 .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); margin: 2px 4px 2px 0; background: var(--panel-2); cursor: pointer; color: var(--text); }
 .status-verified, .verdict-pass { color: var(--pass); }

@@ -3,7 +3,7 @@
 // while the evidence contract (result envelope validation, harness-side
 // console/network corroboration, screenshot confinement) is unchanged.
 
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ensureStateDir, isSafeId } from '../core/paths';
 import { generateId } from '../core/process';
@@ -69,6 +69,10 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
   if (goal.length > 20_000) throw new Error('The QA goal is too long (max 20000 characters)');
   const projectDir = resolve(options.projectDir);
   if (!existsSync(projectDir)) throw new Error(`Project directory does not exist: ${projectDir}`);
+  if (!statSync(projectDir).isDirectory()) throw new Error(`Not a directory: ${projectDir}`);
+  if (options.keepRuns !== undefined && (!Number.isInteger(options.keepRuns) || options.keepRuns < 1)) {
+    throw new Error('--keep-runs must be a positive integer');
+  }
 
   const paths = await ensureStateDir(projectDir);
   const store = new RunStore(paths.runsDir);
@@ -147,7 +151,8 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
       },
     });
 
-    const rawReport = result.finalText.trim();
+    const rawReport = redact(result.finalText.trim(), harness.server.token);
+    if (result.error) result.error = redact(result.error, harness.server.token);
     await store.writeFile(runId, 'agent-output.md', redact(rawReport, harness.server.token) || '(no output)\n');
     const interrupted = result.timedOut || result.aborted;
 
@@ -162,13 +167,13 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
         reportBody: rawReport || '(The run stopped before the QA agent produced output.)',
         validationErrors: ['Interrupted runs cannot produce an authoritative verdict'],
       };
-    } else if (result.error && !rawReport) {
+    } else if (result.error || result.exitCode !== 0) {
       parsed = {
         authoritative: false,
         verdict: 'inconclusive',
         summary: 'The QA agent failed before it could complete this run.',
-        reportBody: '(No QA output was produced.)',
-        validationErrors: [`Provider error: ${result.error.slice(0, 2000)}`],
+        reportBody: rawReport || '(No QA output was produced.)',
+        validationErrors: [`Provider error: ${(result.error || `exit code ${result.exitCode}`).slice(0, 2000)}`],
       };
     } else {
       parsed = parseQaResult(rawReport, runId);
@@ -193,7 +198,7 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
     });
 
     // Passed, evidence-backed assertions refresh the atlas verification history.
-    if (parsed.authoritative && parsed.verdict === 'pass' && envelope) {
+    if (atlasRoot && parsed.authoritative && parsed.verdict === 'pass' && envelope) {
       const published = await publishedSurfaceIds(projectDir);
       if (published) {
         const exercised = envelope.assertions

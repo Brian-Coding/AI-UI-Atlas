@@ -75,12 +75,11 @@ export async function askAtlas(options: AtlasAskOptions): Promise<AtlasAskResult
   const projectKey = resolve(options.projectDir);
   if (activeProjects.has(projectKey)) throw new AtlasQueryBusyError();
 
-  const { root, graph } = await loadPublishedAtlas(projectKey);
-  const allowedIds = graphIds(graph);
-  if (allowedIds.size === 0) throw new Error('The published UI Atlas contains no queryable IDs');
-
   activeProjects.add(projectKey);
   try {
+    const { root, graph } = await loadPublishedAtlas(projectKey);
+    const allowedIds = graphIds(graph);
+    if (allowedIds.size === 0) throw new Error('The published UI Atlas contains no queryable IDs');
     const cwd = join(getDataDir(), 'atlas-ask', safeSegment(projectKey.split(/[\\/]/).pop() ?? 'project', 'project'));
     mkdirSync(cwd, { recursive: true });
     const result = await options.provider.run({
@@ -102,6 +101,7 @@ export async function askAtlas(options: AtlasAskOptions): Promise<AtlasAskResult
     });
     if (result.timedOut) throw new Error(`Ask Atlas timed out after ${Math.round((options.timeoutMs ?? ASK_TIMEOUT_MS) / 1000)}s`);
     if (result.aborted) throw new Error('Ask Atlas was cancelled');
+    if (result.error || result.exitCode !== 0) throw new Error(`Atlas analyst failed: ${result.error || `exit code ${result.exitCode}`}`);
     if (!result.finalText) throw new Error(result.error ? `Atlas analyst failed: ${result.error}` : 'Atlas analyst did not produce an answer');
     const parsed = parseAtlasQueryAnswer(result.finalText, allowedIds);
     return { ...parsed, provider: options.provider.name, model: options.model };

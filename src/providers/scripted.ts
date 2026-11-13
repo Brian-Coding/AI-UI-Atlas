@@ -20,6 +20,7 @@ export class ScriptedProvider implements AgentProvider {
   }
 
   async run(task: AgentTask): Promise<AgentResult> {
+    if (task.signal?.aborted) return { finalText: '', exitCode: null, timedOut: false, aborted: true };
     const controller = new AbortController();
     const onAbort = () => controller.abort(task.signal?.reason);
     if (task.signal?.aborted) onAbort();
