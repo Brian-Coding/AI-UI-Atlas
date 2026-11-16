@@ -117,3 +117,17 @@ test('--no-atlas does not update verification history and retention rejects zero
   await expect(runQa({ ...opts, keepRuns: 0 })).rejects.toThrow('positive integer');
   await expect(runQa({ ...opts, keepRuns: 1.5 })).rejects.toThrow('positive integer');
 });
+
+test('oversized screenshots become inconclusive before hashing and completed journals are released', async () => {
+  const { truncate } = await import('node:fs/promises');
+  const opts = options();
+  opts.provider = new ScriptedProvider(async ctx => {
+    const report = await passing(ctx);
+    await truncate(join(ctx.runtime.screenshotDir!, 'landing.png'), 33 * 1024 * 1024);
+    return report;
+  });
+  const { run } = await runQa(opts);
+  expect(run.verdict).toBe('inconclusive');
+  expect(run.validationErrors?.join()).toContain('bounded regular PNG');
+  await expect(opts.driver.readEvidence(run.browserSessionId)).rejects.toThrow('No run evidence journal');
+});

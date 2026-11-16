@@ -28,10 +28,19 @@ export function isRunRecord(value: any, id: string): value is QaRunRecord {
   for (const key of ['summary', 'error', 'model', 'changeDescription', 'rerunOf']) if (value[key] !== undefined && !string(value[key])) return false;
   for (const key of ['validationErrors', 'atlasSurfaceIds']) if (value[key] !== undefined && !strings(value[key])) return false;
   if (value.verdict !== undefined && !['pass', 'warnings', 'fail', 'inconclusive'].includes(value.verdict)) return false;
-  const records = (items: any, valid: (item: any) => boolean) => items === undefined || (Array.isArray(items) && items.every(item => item && typeof item === 'object' && valid(item)));
-  return records(value.assertions, item => string(item.id) && string(item.name) && ['passed', 'failed', 'warning', 'not_run'].includes(item.status) && strings(item.evidenceIds))
-    && records(value.evidence, item => string(item.id) && string(item.label) && ['screenshot', 'console', 'network', 'observation'].includes(item.kind) && (item.ref === undefined || string(item.ref)))
-    && records(value.findings, item => string(item.id) && string(item.title) && string(item.details) && ['critical', 'major', 'minor', 'note'].includes(item.severity) && strings(item.evidenceIds));
+  const optionalStrings = (item: any, keys: string[]) => keys.every(key => item[key] === undefined || string(item[key]));
+  const optionalArrays = (item: any, keys: string[]) => keys.every(key => item[key] === undefined || strings(item[key]));
+  if (value.atlasUsed !== undefined && typeof value.atlasUsed !== 'boolean') return false;
+  if (value.usage !== undefined && (!value.usage || typeof value.usage !== 'object' || Array.isArray(value.usage)
+    || Object.entries(value.usage).some(([key, count]) => !['inputTokens', 'outputTokens', 'costUsd'].includes(key)
+      || typeof count !== 'number' || !Number.isFinite(count) || count < 0))) return false;
+  const records = (items: any, valid: (item: any) => boolean) => items === undefined || (Array.isArray(items) && items.every(item => item && typeof item === 'object' && !Array.isArray(item) && valid(item)));
+  return records(value.assertions, item => string(item.id) && string(item.name) && ['passed', 'failed', 'warning', 'not_run'].includes(item.status)
+      && strings(item.evidenceIds) && optionalStrings(item, ['expected', 'observed']) && optionalArrays(item, ['atlasSurfaceIds']))
+    && records(value.evidence, item => string(item.id) && string(item.label) && ['screenshot', 'console', 'network', 'observation'].includes(item.kind)
+      && optionalStrings(item, ['ref', 'detail']))
+    && records(value.findings, item => string(item.id) && string(item.title) && string(item.details) && ['critical', 'major', 'minor', 'note'].includes(item.severity)
+      && strings(item.evidenceIds) && optionalArrays(item, ['atlasSurfaceIds']));
 }
 
 function isActive(run: Pick<QaRunRecord, 'status'>): boolean {

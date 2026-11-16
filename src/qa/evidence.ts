@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { validPngFile } from '../core/png';
-import { closeSync, existsSync, lstatSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { BrowserDriver } from '../browser/driver';
 import { isConsoleError, isConsoleWarning } from '../browser/driver';
@@ -56,6 +56,11 @@ export function validateScreenshotEvidence(
         errors.push(`Screenshot evidence ${evidence.id} directory resolves outside the runs folder`);
         continue;
       }
+      const info = lstatSync(screenshot);
+      if (!info.isFile() || info.isSymbolicLink() || info.size < 45 || info.size > 32 * 1024 * 1024) {
+        errors.push(`Screenshot evidence ${evidence.id} is not a bounded regular PNG file`);
+        continue;
+      }
       const realScreenshot = realpathSync(screenshot);
       if (!isPathInside(realRoot, realScreenshot)) {
         errors.push(`Screenshot evidence ${evidence.id} resolves outside this run's screenshot directory`);
@@ -65,8 +70,7 @@ export function validateScreenshotEvidence(
         && item.sha256 === createHash('sha256').update(readFileSync(realScreenshot)).digest('hex'))) {
         errors.push(`Screenshot evidence ${evidence.id} was not captured by this run or changed after capture`);
       }
-      const info = statSync(realScreenshot);
-      if (!info.isFile() || info.size < 8 || !hasPngSignature(realScreenshot)) {
+      if (!hasPngSignature(realScreenshot)) {
         errors.push(`Screenshot evidence ${evidence.id} is not a valid PNG file`);
       }
     } catch {

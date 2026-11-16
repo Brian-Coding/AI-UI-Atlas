@@ -72,7 +72,7 @@ export async function runCliAgent(options: CliRunOptions): Promise<CliRunOutcome
       // Ask nicely first so the CLI can flush, then take down the whole tree.
       if (process.platform !== 'win32') {
         try { proc.kill('SIGINT'); } catch {}
-        const graceful = await waitForProcessExit(proc, 1500);
+        await waitForProcessExit(proc, 1500);
 
       }
       const result = await killProcessTree(proc).catch(() => null);

@@ -4,7 +4,7 @@
 // console/network corroboration, screenshot confinement) is unchanged.
 
 import { existsSync, statSync, realpathSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { ensureStateDir, isSafeId } from '../core/paths';
 import { generateId } from '../core/process';
 import { openHarness, type HarnessOptions } from '../harness';
@@ -231,6 +231,7 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
   } finally {
     harness.server.sessions.unregister(browserSessionId);
     await harness.driver.closeSession(browserSessionId).catch(() => {});
+    await harness.driver.endEvidence(browserSessionId).catch(() => {});
     await harness.close();
   }
 }

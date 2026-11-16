@@ -10,3 +10,5 @@
 - Isolate invalid run records; use per-call temporary Ask directories; emit viewer license notices during builds.
 - Replace repeated flow scans with indexed navigation. On a 2,000-surface fixture, median navigation fell from 22.84 ms to 0.81 ms; [method and other measurements](docs/performance.md).
 - Expand real Chromium regressions and document the remaining platform/live-provider validation limits.
+
+Follow-up review: enforce screenshot size/type bounds before hashing, release completed harness journals in shared workers, and validate nested run-record fields.

@@ -92,3 +92,12 @@ test('schema-invalid JSON and directory-ID mismatch are isolated from listing an
   expect(await store.prune(1)).toEqual([]);
   expect(existsSync(join(runsDir, 'wrongid'))).toBe(true);
 });
+
+test('optional nested fields must match the persisted record schema', async () => {
+  const { isRunRecord } = await import('./run-store');
+  for (const patch of [
+    { usage: { inputTokens: 'many' } }, { usage: { costUsd: -1 } },
+    { evidence: [{ id: 'e', label: 'Demo', kind: 'console', detail: {} }] },
+    { assertions: [{ id: 'a', name: 'Demo', status: 'passed', evidenceIds: [], atlasSurfaceIds: [42] }] },
+  ]) expect(isRunRecord({ ...record('run-1'), ...patch }, 'run-1')).toBe(false);
+});

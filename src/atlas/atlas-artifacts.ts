@@ -5,7 +5,6 @@ import {
   cp,
   lstat,
   mkdir,
-  open,
   readFile,
   readdir,
   realpath,

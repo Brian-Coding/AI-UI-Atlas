@@ -50,6 +50,7 @@ export interface BrowserDriver {
   /** Harness-only journal: never exposed by the agent HTTP API. */
   beginEvidence(sessionId: string): Promise<void>;
   readEvidence(sessionId: string): Promise<RunEvidence>;
+  endEvidence(sessionId: string): Promise<void>;
   navigate(sessionId: string, url: string): Promise<{ url: string; title: string }>;
   screenshot(sessionId: string, request: ScreenshotRequest): Promise<string>;
   click(sessionId: string, selector: string): Promise<void>;

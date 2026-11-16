@@ -39,6 +39,7 @@ try {
     const { run } = await runQa({ projectDir: root, url: `http://127.0.0.1:${app.port}`, goal: 'Render demo', driver, provider });
     const expected = ['clear', 'view-overflow'].includes(mode) ? 'fail' : 'inconclusive';
     assert.equal(run.verdict, expected, mode);
+    await assert.rejects(driver.readEvidence(run.browserSessionId), /No run evidence journal/);
   }
   console.log('PASS: runQa retains cleared/evicted failures and rejects journal loss, overflow, replaced sessions, and altered screenshots');
 

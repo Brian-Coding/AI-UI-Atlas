@@ -16,7 +16,6 @@ import { ensureSafeDirectory, writeExclusiveArtifact } from './safe-artifacts.mj
 
 import { createServer } from 'node:http';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { chromium } from 'playwright';
 import {
@@ -190,7 +189,7 @@ const idleSweepTimer = setInterval(async () => {
       console.warn(`[browser-worker] closing idle session ${key} (idle ${Math.round((now - session.lastUsedAt) / 60000)}m)`);
       contextGenerations.set(key, (contextGenerations.get(key) ?? 0) + 1);
       loseEvidence(key);
-  contexts.delete(key);
+      contexts.delete(key);
       try { await session.context.close(); } catch {}
     }
   }
@@ -279,6 +278,10 @@ const handlers = {
     if (evidence.has(key)) throw new Error('Evidence already started for this session');
     await ensureSession(key);
     evidence.set(key, { complete: true, console: [], network: [], screenshots: [] });
+    return { ok: true };
+  },
+  'POST /evidence/end': async (body) => {
+    evidence.delete(normalizeBrowserSessionId(body.browserSessionId));
     return { ok: true };
   },
   'GET /evidence': async (_body, query) => {

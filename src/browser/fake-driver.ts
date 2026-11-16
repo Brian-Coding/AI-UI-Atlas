@@ -52,6 +52,7 @@ export class FakeBrowserDriver implements BrowserDriver {
     this.session(id);
     this.evidence.set(id, { complete: true, console: [], network: [], screenshots: [] });
   }
+  async endEvidence(id: string): Promise<void> { this.evidence.delete(id); }
   async readEvidence(id: string): Promise<RunEvidence> {
     const journal = this.evidence.get(id);
     if (!journal) throw new Error('No run evidence journal');

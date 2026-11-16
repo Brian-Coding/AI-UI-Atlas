@@ -215,6 +215,11 @@ export class WorkerBrowserDriver implements BrowserDriver {
     await this.call('POST', '/evidence/begin', { browserSessionId: sessionId });
   }
 
+  async endEvidence(sessionId: string): Promise<void> {
+    if (!this.isRunning()) return;
+    await this.request('POST', '/evidence/end', { browserSessionId: sessionId });
+  }
+
   async readEvidence(sessionId: string): Promise<RunEvidence> {
     // Do not restart a lost worker and silently claim a complete journal.
     return this.request('GET', '/evidence' + this.query(sessionId));

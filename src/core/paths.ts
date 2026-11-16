@@ -1,6 +1,5 @@
 import { ensureSafeDirectory, ensureIgnoredDirectory } from '../../scripts/safe-artifacts.mjs';
-import { existsSync, realpathSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 

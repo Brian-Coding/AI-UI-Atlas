@@ -39,7 +39,6 @@ export function isRequestAllowed(req: Request, serverOrigin: string | number): b
     if (url.origin !== expected) return false;
     const hostHeader = req.headers.get('host');
     if (hostHeader) {
-      const host = new URL(`http://${hostHeader}`).hostname;
       if (hostHeader !== new URL(expected).host) return false;
     }
     const origin = req.headers.get('origin');
