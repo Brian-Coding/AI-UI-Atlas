@@ -82,3 +82,30 @@ test.skipIf(process.platform === 'win32')('timeout cleans descendants after a gr
     finally { try { process.kill(pid, 'SIGKILL'); } catch {} }
   }
 }, 10_000);
+
+
+test.skipIf(process.platform === 'win32')('natural provider exit cleans inherited pipes without timing out or losing its final event', async () => {
+  const { writeFile } = await import('node:fs/promises');
+  const cwd = tempDir('natural-exit-tree');
+  const fixture = join(cwd, 'tree.mjs');
+  await writeFile(fixture, `import {writeFileSync, existsSync} from 'node:fs'; import {spawn} from 'node:child_process';
+    const n=Number(process.argv[2]); writeFileSync(process.argv[3]+'/'+n+'.pid',String(process.pid));
+    if(n<2)spawn(process.execPath,[process.argv[1],String(n+1),process.argv[3]],{stdio:'inherit'});
+    setInterval(()=>{
+      if(n===0 && existsSync(process.argv[3]+'/2.pid')) {
+        console.log(JSON.stringify({type:'final',text:'All done.'})); process.exit(0);
+      }
+    },10);`);
+  const events: unknown[] = [];
+  const result = await runCliAgent({ args: [process.execPath, fixture, '0', cwd], cwd, stdinText: 'test', timeoutMs: 3000,
+    onEvent: event => events.push(event) });
+  expect(result).toMatchObject({ exitCode: 0, timedOut: false, aborted: false, detached: false });
+  expect(events).toEqual([{ type: 'final', text: 'All done.' }]);
+  for (const depth of [1, 2]) {
+    const pid = Number(await readFile(join(cwd, `${depth}.pid`), 'utf8'));
+    const probe = Bun.spawn(['ps', '-p', String(pid), '-o', 'stat='], { stdout: 'pipe' });
+    const state = (await new Response(probe.stdout).text()).trim(); await probe.exited;
+    try { expect(state === '' || state.startsWith('Z')).toBe(true); }
+    finally { try { process.kill(pid, 'SIGKILL'); } catch {} }
+  }
+}, 10000);

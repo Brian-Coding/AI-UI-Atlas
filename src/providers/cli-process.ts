@@ -7,6 +7,7 @@ import {
   safeSpawn,
   waitForOperationOrUnwind,
   waitForProcessExit,
+  type ProcessTerminationResult,
 } from '../core/process';
 import { flushNdjsonLeftover, parseNdjsonLines } from './stream-utils';
 
@@ -48,6 +49,7 @@ export async function runCliAgent(options: CliRunOptions): Promise<CliRunOutcome
   let aborted = false;
   let detached = false;
   let termination: Promise<void> | null = null;
+  let cleanupPromise: Promise<ProcessTerminationResult | null> | null = null;
 
   const transcript = (line: string) => {
     if (!options.transcriptPath) return;
@@ -66,6 +68,22 @@ export async function runCliAgent(options: CliRunOptions): Promise<CliRunOutcome
     env: createCliEnv(options.env ?? {}),
   });
 
+  const cleanup = (): Promise<ProcessTerminationResult | null> => {
+    cleanupPromise ??= killProcessTree(proc).catch(() => null).then(result => {
+      if (!result?.rootExited || !result.treeKill.succeeded) {
+        detached = true;
+        unwind.trigger();
+      }
+      return result;
+    });
+    return cleanupPromise;
+  };
+  // A child may keep inherited pipes open after the provider exits. Release
+  // the owned group on root exit while preserving buffered final output.
+  void proc.exited.then(() => {
+    if (process.platform !== 'win32') return cleanup();
+  }, () => { detached = true; unwind.trigger(); });
+
   const terminate = (): Promise<void> => {
     if (termination) return termination;
     termination = (async () => {
@@ -73,10 +91,8 @@ export async function runCliAgent(options: CliRunOptions): Promise<CliRunOutcome
       if (process.platform !== 'win32') {
         try { proc.kill('SIGINT'); } catch {}
         await waitForProcessExit(proc, 1500);
-
       }
-      const result = await killProcessTree(proc).catch(() => null);
-      if (!result?.rootExited || !result.treeKill.succeeded) detached = true;
+      await cleanup();
       unwind.trigger();
     })();
     return termination;
@@ -145,10 +161,7 @@ export async function runCliAgent(options: CliRunOptions): Promise<CliRunOutcome
 
     const exit = await waitForOperationOrUnwind(proc.exited, unwind);
     if (termination) await termination;
-    else if (process.platform !== 'win32') {
-      const cleanup = await killProcessTree(proc);
-      if (!cleanup.treeKill.succeeded) detached = true;
-    }
+    else if (process.platform !== 'win32') await cleanup();
     const stderr = (await stderrPromise).trim();
     return {
       exitCode: exit.status === 'completed' ? exit.value : null,

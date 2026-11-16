@@ -12,3 +12,5 @@
 - Expand real Chromium regressions and document the remaining platform/live-provider validation limits.
 
 Follow-up review: enforce screenshot size/type bounds before hashing, release completed harness journals in shared workers, and validate nested run-record fields.
+
+- Follow-up process regression: clean descendant-owned pipes on natural provider exit while retaining the final event.
