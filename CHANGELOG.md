@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.1 — 2026-11-16 (private preview)
+## Unreleased — 2026-11-16 (private preview)
 
 - Separate run evidence from clearable browser buffers; incomplete/lost evidence cannot produce PASS.
 - Write screenshots exclusively beneath checked directories, decode bounded PNGs, and verify QA capture hashes.
