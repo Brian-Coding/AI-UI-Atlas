@@ -8,8 +8,8 @@ function req(url: string, headers: Record<string, string> = {}): Request {
 describe('network guard', () => {
   test('allows loopback requests without an Origin (curl, agents)', () => {
     expect(isRequestAllowed(req('http://127.0.0.1:4477/api/project'), 4477)).toBe(true);
-    expect(isRequestAllowed(req('http://localhost:4477/api/project'), 4477)).toBe(true);
-    expect(isRequestAllowed(req('http://[::1]:4477/api/project'), 4477)).toBe(true);
+    expect(isRequestAllowed(req('http://localhost:4477/api/project'), 'http://localhost:4477')).toBe(true);
+    expect(isRequestAllowed(req('http://[::1]:4477/api/project'), 'http://[::1]:4477')).toBe(true);
   });
 
   test('blocks DNS rebinding through a non-loopback Host', () => {
@@ -19,7 +19,7 @@ describe('network guard', () => {
 
   test('only accepts this exact server origin from browsers', () => {
     expect(isRequestAllowed(req('http://127.0.0.1:4477/', { origin: 'http://127.0.0.1:4477' }), 4477)).toBe(true);
-    expect(isRequestAllowed(req('http://127.0.0.1:4477/', { origin: 'http://localhost:4477' }), 4477)).toBe(true);
+    expect(isRequestAllowed(req('http://127.0.0.1:4477/', { origin: 'http://localhost:4477' }), 4477)).toBe(false);
     // The app under test usually runs on another loopback port: refused.
     expect(isRequestAllowed(req('http://127.0.0.1:4477/', { origin: 'http://localhost:3000' }), 4477)).toBe(false);
     expect(isRequestAllowed(req('http://127.0.0.1:4477/', { origin: 'https://evil.example' }), 4477)).toBe(false);

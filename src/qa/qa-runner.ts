@@ -3,7 +3,7 @@
 // while the evidence contract (result envelope validation, harness-side
 // console/network corroboration, screenshot confinement) is unchanged.
 
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ensureStateDir, isSafeId } from '../core/paths';
 import { generateId } from '../core/process';
@@ -67,7 +67,7 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
   const goal = options.goal.trim();
   if (!goal) throw new Error('A QA goal is required (what should be tested?)');
   if (goal.length > 20_000) throw new Error('The QA goal is too long (max 20000 characters)');
-  const projectDir = resolve(options.projectDir);
+  const projectDir = realpathSync(options.projectDir);
   if (!existsSync(projectDir)) throw new Error(`Project directory does not exist: ${projectDir}`);
   if (!statSync(projectDir).isDirectory()) throw new Error(`Not a directory: ${projectDir}`);
   if (options.keepRuns !== undefined && (!Number.isInteger(options.keepRuns) || options.keepRuns < 1)) {
@@ -106,6 +106,7 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
   harness.server.sessions.register({ sessionId: browserSessionId, kind: 'qa', screenshotDir: screenshotsDir, runId });
 
   try {
+    await harness.driver.beginEvidence(browserSessionId);
     const systemPrompt = buildQaSystemPrompt({
       apiBase: harness.server.url,
       token: harness.server.token,
@@ -178,7 +179,7 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
     } else {
       parsed = parseQaResult(rawReport, runId);
       parsed = await corroborateBrowserEvidence(parsed, harness.driver, browserSessionId);
-      parsed = validateScreenshotEvidence(parsed, screenshotsDir, paths.runsDir);
+      parsed = validateScreenshotEvidence(parsed, screenshotsDir, paths.runsDir, (await harness.driver.readEvidence(browserSessionId)).screenshots);
     }
 
     const envelope = parsed.envelope;

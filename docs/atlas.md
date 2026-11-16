@@ -30,7 +30,7 @@ bun run atlas resume /path/to/app --provider claude
 bun run atlas discard /path/to/app
 ```
 
-Resume reuses the candidate and passes its validation errors back to the agent. It retains the original model unless you specify another. Pass `--url` if your dev server moved. Discard deletes the generated candidate and run state while leaving the published map alone. Run only one Atlas build, resume, or discard at a time per project.
+Resume reuses the candidate and passes its validation errors back to the agent. It retains the original model unless you specify another. Pass `--url` if your dev server moved. Discard deletes the generated candidate and run state while leaving the published map alone. An atomic project lock enforces one build, resume, or discard at a time across CLI processes. A lock owned by an exited process can be reclaimed; live or reused PIDs are conservatively refused.
 
 ## Search and Ask Atlas
 
@@ -52,3 +52,7 @@ Start the viewer with `--allow-ask --provider codex` for the same LLM question w
 QA prompts include the Atlas location and ask the agent to derive assertions from relevant surfaces. An accepted PASS records exercised surface IDs in `.atlas-qa/surface-verifications.json`. The viewer displays the last passing QA run separately from discovery status. Rebuilding retains verification entries for surviving IDs; this history is not proof that the newly changed app has been retested.
 
 See [artifact format](artifacts.md) for the files and schema.
+
+Candidate and staging containers (`docs/.ui-atlas-candidates/` and `docs/.ui-atlas-staging/`) contain their own `.gitignore` so external target repositories do not accidentally stage unfinished evidence. The final `docs/ui-atlas/` bundle remains shareable after inspection. Interrupted artifacts can contain private data.
+
+Ask uses a fresh temporary working directory for each call and removes it on completion. Projects with the same basename do not share scratch state.

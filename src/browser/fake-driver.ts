@@ -1,8 +1,11 @@
+import { PNG } from 'pngjs';
+import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { screenshotFileName } from '../../scripts/browser-worker-core.mjs';
 import type {
   BrowserDriver,
+  RunEvidence,
   BrowserStatus,
   ConsoleEntry,
   NetworkEntry,
@@ -10,10 +13,7 @@ import type {
 } from './driver';
 
 /** A valid 1x1 PNG, so screenshot evidence passes signature checks. */
-export const TINY_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-  'base64',
-);
+export const TINY_PNG = PNG.sync.write({ width: 1, height: 1, data: Buffer.from([80, 130, 220, 255]) } as PNG);
 
 export interface FakePage {
   title?: string;
@@ -47,6 +47,19 @@ export class FakeBrowserDriver implements BrowserDriver {
   readonly calls: FakeBrowserCall[] = [];
   private readonly sessions = new Map<string, FakeSession>();
   closed = false;
+  private readonly evidence = new Map<string, RunEvidence>();
+  async beginEvidence(id: string): Promise<void> {
+    this.session(id);
+    this.evidence.set(id, { complete: true, console: [], network: [], screenshots: [] });
+  }
+  async readEvidence(id: string): Promise<RunEvidence> {
+    const journal = this.evidence.get(id);
+    if (!journal) throw new Error('No run evidence journal');
+    const session = this.sessions.get(id);
+    return structuredClone({ ...journal,
+      console: [...journal.console, ...(session?.console ?? [])],
+      network: [...journal.network, ...(session?.network ?? [])] });
+  }
 
   constructor(
     private readonly pages: Record<string, FakePage> = {},
@@ -84,7 +97,8 @@ export class FakeBrowserDriver implements BrowserDriver {
     this.session(sessionId);
     await mkdir(request.outDir, { recursive: true });
     const path = join(request.outDir, screenshotFileName(request.name));
-    await writeFile(path, TINY_PNG);
+    await writeFile(path, TINY_PNG, { flag: 'wx' });
+    this.evidence.get(sessionId)?.screenshots.push({ path, sha256: createHash('sha256').update(TINY_PNG).digest('hex') });
     return path;
   }
 
@@ -121,7 +135,7 @@ export class FakeBrowserDriver implements BrowserDriver {
 
   async clearConsole(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
-    if (session) session.console = [];
+    if (session) { this.evidence.get(sessionId)?.console.push(...session.console); session.console = []; }
   }
 
   async getNetwork(sessionId: string): Promise<NetworkEntry[]> {
@@ -130,7 +144,7 @@ export class FakeBrowserDriver implements BrowserDriver {
 
   async clearNetwork(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
-    if (session) session.network = [];
+    if (session) { this.evidence.get(sessionId)?.network.push(...session.network); session.network = []; }
   }
 
   async status(sessionId: string): Promise<BrowserStatus> {
@@ -141,6 +155,8 @@ export class FakeBrowserDriver implements BrowserDriver {
 
   async closeSession(sessionId: string): Promise<void> {
     this.record('close-session', sessionId);
+    const journal = this.evidence.get(sessionId);
+    if (journal) journal.complete = false;
     this.sessions.delete(sessionId);
   }
 

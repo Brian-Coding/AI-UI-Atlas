@@ -39,7 +39,17 @@ export interface ScreenshotRequest {
   fullPage?: boolean;
 }
 
+export interface RunEvidence {
+  complete: boolean;
+  console: ConsoleEntry[];
+  network: NetworkEntry[];
+  screenshots: Array<{ path: string; sha256: string }>;
+}
+
 export interface BrowserDriver {
+  /** Harness-only journal: never exposed by the agent HTTP API. */
+  beginEvidence(sessionId: string): Promise<void>;
+  readEvidence(sessionId: string): Promise<RunEvidence>;
   navigate(sessionId: string, url: string): Promise<{ url: string; title: string }>;
   screenshot(sessionId: string, request: ScreenshotRequest): Promise<string>;
   click(sessionId: string, selector: string): Promise<void>;

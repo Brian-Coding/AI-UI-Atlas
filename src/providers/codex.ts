@@ -167,7 +167,7 @@ export class CodexProvider implements AgentProvider {
       let finalText = '';
       try { finalText = readFileSync(outputPath, 'utf8').trim(); } catch {}
       if (!finalText) finalText = state.lastAgentMessage;
-      let error = state.error;
+      let error = outcome.detached ? 'Provider descendant cleanup could not be confirmed' : state.error;
       if (!error && outcome.exitCode !== 0 && !outcome.timedOut && !outcome.aborted) {
         error = outcome.stderr || `Codex CLI exited with code ${outcome.exitCode} and no output`;
       }

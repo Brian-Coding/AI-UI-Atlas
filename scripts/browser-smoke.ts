@@ -68,6 +68,7 @@ try {
   assert.ok(String(await driver.evaluate(session, "document.querySelector('.detail h2')?.textContent")).includes('Settings'));
   assert.equal(await driver.evaluate(session, "Array.from(document.querySelectorAll('img')).every(img => img.complete && img.naturalWidth > 0)"), true);
   if (process.env.ATLAS_QA_CAPTURE_PREVIEW === '1') {
+    await rm(resolve(import.meta.dir, '../docs/images/atlas-viewer.png'), { force: true });
     await driver.screenshot(session, { outDir: resolve(import.meta.dir, '../docs/images'), name: 'atlas-viewer' });
   }
   await driver.click(session, 'button.tab:text-is("Ask Atlas")');

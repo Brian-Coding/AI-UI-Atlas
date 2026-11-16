@@ -11,6 +11,7 @@ import { fetchWithTimeout, readJsonResponseWithTimeout } from '../core/external-
 import { terminateNodeChildProcess, waitForNodeChildExit } from '../core/node-child-process';
 import type {
   BrowserDriver,
+  RunEvidence,
   BrowserStatus,
   ConsoleEntry,
   NetworkEntry,
@@ -160,8 +161,8 @@ export class WorkerBrowserDriver implements BrowserDriver {
       try {
         await this.request('POST', '/shutdown', undefined, 3000);
       } catch { /* worker may already be down */ }
-      if (this.proc !== proc) return;
-      if (!await waitForNodeChildExit(proc, 2000)) await terminateNodeChildProcess(proc);
+      await waitForNodeChildExit(proc, 2000);
+      await terminateNodeChildProcess(proc);
       if (this.proc === proc) {
         this.proc = null;
         this.port = null;
@@ -208,6 +209,15 @@ export class WorkerBrowserDriver implements BrowserDriver {
 
   private query(sessionId: string): string {
     return `?browserSessionId=${encodeURIComponent(sessionId)}`;
+  }
+
+  async beginEvidence(sessionId: string): Promise<void> {
+    await this.call('POST', '/evidence/begin', { browserSessionId: sessionId });
+  }
+
+  async readEvidence(sessionId: string): Promise<RunEvidence> {
+    // Do not restart a lost worker and silently claim a complete journal.
+    return this.request('GET', '/evidence' + this.query(sessionId));
   }
 
   async navigate(sessionId: string, url: string): Promise<{ url: string; title: string }> {

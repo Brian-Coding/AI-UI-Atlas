@@ -73,13 +73,10 @@ export async function runCliAgent(options: CliRunOptions): Promise<CliRunOutcome
       if (process.platform !== 'win32') {
         try { proc.kill('SIGINT'); } catch {}
         const graceful = await waitForProcessExit(proc, 1500);
-        if (graceful.status === 'exited') {
-          unwind.trigger();
-          return;
-        }
+
       }
       const result = await killProcessTree(proc).catch(() => null);
-      if (!result?.rootExited) detached = true;
+      if (!result?.rootExited || !result.treeKill.succeeded) detached = true;
       unwind.trigger();
     })();
     return termination;
@@ -147,6 +144,11 @@ export async function runCliAgent(options: CliRunOptions): Promise<CliRunOutcome
     }
 
     const exit = await waitForOperationOrUnwind(proc.exited, unwind);
+    if (termination) await termination;
+    else if (process.platform !== 'win32') {
+      const cleanup = await killProcessTree(proc);
+      if (!cleanup.treeKill.succeeded) detached = true;
+    }
     const stderr = (await stderrPromise).trim();
     return {
       exitCode: exit.status === 'completed' ? exit.value : null,

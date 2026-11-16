@@ -1,4 +1,6 @@
-import { existsSync } from 'node:fs';
+import { ensureSafeDirectory, ensureIgnoredDirectory } from '../../scripts/safe-artifacts.mjs';
+import { validPngFile } from '../core/png';
+import { existsSync, realpathSync } from 'node:fs';
 import {
   cp,
   lstat,
@@ -120,7 +122,7 @@ function assertInside(root: string, target: string, label: string): void {
 
 export function atlasCandidatePaths(projectRoot: string, runId: string): AtlasCandidatePaths {
   const safeId = safeRunId(runId);
-  const root = resolve(projectRoot);
+  const root = realpathSync(projectRoot);
   const docsRoot = join(root, 'docs');
   const candidatesRoot = join(root, ...ATLAS_CANDIDATES_DIR.split('/'));
   const candidateRoot = join(candidatesRoot, safeId);
@@ -137,7 +139,9 @@ export function atlasCandidatePaths(projectRoot: string, runId: string): AtlasCa
 
 export async function createAtlasCandidate(projectRoot: string, runId: string): Promise<AtlasCandidatePaths> {
   const paths = atlasCandidatePaths(projectRoot, runId);
-  await mkdir(join(paths.candidateRoot, 'shots'), { recursive: true });
+  await ensureIgnoredDirectory(paths.candidatesRoot);
+  await mkdir(paths.candidateRoot);
+  await ensureSafeDirectory(join(paths.candidateRoot, 'shots'));
   const now = new Date().toISOString();
   await writeFile(join(paths.candidateRoot, 'checkpoint.json'), JSON.stringify({
     schemaVersion: 1,
@@ -198,16 +202,7 @@ async function inspectPngEvidence(candidateRoot: string, ref: string): Promise<s
       stat(evidencePath),
     ]);
     if (!isInside(realRoot, realEvidence)) return 'resolves outside the candidate directory';
-    if (!info.isFile() || info.size < 8) return 'is not a valid PNG file';
-    const handle = await open(evidencePath, 'r');
-    try {
-      const signature = Buffer.alloc(8);
-      const { bytesRead } = await handle.read(signature, 0, 8, 0);
-      const expected = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-      if (bytesRead !== 8 || !signature.equals(expected)) return 'does not have a PNG signature';
-    } finally {
-      await handle.close();
-    }
+    if (!info.isFile() || !validPngFile(evidencePath)) return 'is not a valid PNG file';
     return null;
   } catch {
     return 'does not exist or cannot be resolved';
@@ -487,10 +482,12 @@ export async function promoteAtlasCandidate(projectRoot: string, runId: string):
   if (!validation.valid) throw new Error(`Atlas candidate failed validation:\n- ${validation.errors.join('\n- ')}`);
 
   const paths = atlasCandidatePaths(projectRoot, runId);
-  await mkdir(paths.docsRoot, { recursive: true });
+  await ensureSafeDirectory(paths.docsRoot);
 
-  const rollbackRoot = join(paths.docsRoot, `.ui-atlas-rollback-${runId}`);
-  const publishRoot = join(paths.docsRoot, `.ui-atlas-publish-${runId}`);
+  const stagingRoot = join(paths.docsRoot, '.ui-atlas-staging');
+  await ensureIgnoredDirectory(stagingRoot);
+  const rollbackRoot = join(stagingRoot, `rollback-${runId}`);
+  const publishRoot = join(stagingRoot, `publish-${runId}`);
   assertInside(paths.docsRoot, rollbackRoot, 'Atlas rollback');
   assertInside(paths.docsRoot, publishRoot, 'Atlas publication staging');
 

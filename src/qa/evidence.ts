@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { validPngFile } from '../core/png';
 import { closeSync, existsSync, lstatSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { BrowserDriver } from '../browser/driver';
@@ -5,17 +8,7 @@ import { isConsoleError, isConsoleWarning } from '../browser/driver';
 import { isPathInside } from '../core/paths';
 import type { ParsedQaResult } from './qa-result';
 
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-
-export function hasPngSignature(path: string): boolean {
-  const descriptor = openSync(path, 'r');
-  try {
-    const signature = Buffer.alloc(8);
-    return readSync(descriptor, signature, 0, 8, 0) === 8 && signature.equals(PNG_SIGNATURE);
-  } finally {
-    closeSync(descriptor);
-  }
-}
+export const hasPngSignature = validPngFile;
 
 function inconclusive(parsed: ParsedQaResult, summary: string, errors: string[]): ParsedQaResult {
   return {
@@ -36,6 +29,7 @@ export function validateScreenshotEvidence(
   parsed: ParsedQaResult,
   screenshotsDir: string,
   runsRoot: string,
+  captures?: Array<{ path: string; sha256: string }>,
 ): ParsedQaResult {
   if (!parsed.envelope) return parsed;
   const expectedRoot = resolve(screenshotsDir);
@@ -67,6 +61,10 @@ export function validateScreenshotEvidence(
         errors.push(`Screenshot evidence ${evidence.id} resolves outside this run's screenshot directory`);
         continue;
       }
+      if (captures && !captures.some(item => resolve(item.path) === screenshot
+        && item.sha256 === createHash('sha256').update(readFileSync(realScreenshot)).digest('hex'))) {
+        errors.push(`Screenshot evidence ${evidence.id} was not captured by this run or changed after capture`);
+      }
       const info = statSync(realScreenshot);
       if (!info.isFile() || info.size < 8 || !hasPngSignature(realScreenshot)) {
         errors.push(`Screenshot evidence ${evidence.id} is not a valid PNG file`);
@@ -87,7 +85,7 @@ function nextId(used: Set<string>, base: string): string {
 }
 
 /**
- * The harness re-reads the session's console and network buffers itself and
+ * The harness reads its separate append-only, run-scoped journal and
  * adds them as evidence. Runtime errors force FAIL; warnings or failed
  * requests downgrade PASS to WARNINGS. The agent cannot talk its way past
  * what the browser actually recorded.
@@ -105,10 +103,10 @@ export async function corroborateBrowserEvidence(
         'Harness could not corroborate console or network evidence',
       ]);
     }
-    const [consoleEntries, networkEntries] = await Promise.all([
-      driver.getConsole(browserSessionId),
-      driver.getNetwork(browserSessionId),
-    ]);
+    const journal = await driver.readEvidence(browserSessionId);
+    if (!journal.complete) return inconclusive(parsed, 'Browser evidence was lost, reset, or overflowed.', ['Incomplete run evidence journal']);
+    const consoleEntries = journal.console;
+    const networkEntries = journal.network;
     const consoleErrors = consoleEntries.filter(isConsoleError);
     const consoleWarnings = consoleEntries.filter(isConsoleWarning).length;
     const serverErrors = networkEntries.filter(entry => typeof entry.status === 'number' && entry.status >= 500);

@@ -78,6 +78,10 @@ export class BrowserApiClient {
     await this.request('POST', '/network/clear', {});
   }
 
+  async closeSession(): Promise<void> {
+    await this.request('POST', '/session/close', {});
+  }
+
   status(): Promise<BrowserStatus & { ok: boolean }> {
     return this.request('GET', '/status');
   }

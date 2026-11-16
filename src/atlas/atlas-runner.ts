@@ -1,9 +1,10 @@
+import { withProjectLock } from '../core/project-lock';
 // Transactional UI Atlas runs. Adapted from Agent Forge's atlas.service:
 // the agent writes a candidate bundle, the harness validates it, and only a
 // valid candidate is atomically promoted to docs/ui-atlas. Workspace and
 // hidden-agent bookkeeping is replaced by a small state file in .atlas-qa/.
 
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync, realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { atomicWriteFile } from '../core/atomic-file';
@@ -102,7 +103,7 @@ function assertProjectDir(projectDir: string): string {
   const root = resolve(projectDir);
   if (!existsSync(root)) throw new Error(`Project directory does not exist: ${root}`);
   if (!statSync(root).isDirectory()) throw new Error(`Not a directory: ${root}`);
-  return root;
+  return realpathSync(root);
 }
 
 function validateUrl(url: string): string {
@@ -117,7 +118,11 @@ function validateUrl(url: string): string {
 }
 
 /** Start a new Atlas run (initial build, or an update when an atlas exists). */
-export async function buildAtlas(options: AtlasBuildOptions): Promise<AtlasRunState> {
+export function buildAtlas(options: AtlasBuildOptions): Promise<AtlasRunState> {
+  return withProjectLock(options.projectDir, () => buildAtlasLocked(options));
+}
+
+async function buildAtlasLocked(options: AtlasBuildOptions): Promise<AtlasRunState> {
   const projectDir = assertProjectDir(options.projectDir);
   const url = validateUrl(options.url);
   const existing = await readAtlasRunState(projectDir);
@@ -162,7 +167,11 @@ export async function buildAtlas(options: AtlasBuildOptions): Promise<AtlasRunSt
 }
 
 /** Continue a paused or failed run from its checkpoint. */
-export async function resumeAtlas(options: AtlasRunOptions & { url?: string }): Promise<AtlasRunState> {
+export function resumeAtlas(options: AtlasRunOptions & { url?: string }): Promise<AtlasRunState> {
+  return withProjectLock(options.projectDir, () => resumeAtlasLocked(options));
+}
+
+async function resumeAtlasLocked(options: AtlasRunOptions & { url?: string }): Promise<AtlasRunState> {
   const projectDir = assertProjectDir(options.projectDir);
   const state = await readAtlasRunState(projectDir);
   if (!state) throw new Error('No Atlas run to resume for this project.');
@@ -194,7 +203,11 @@ export async function resumeAtlas(options: AtlasRunOptions & { url?: string }): 
 }
 
 /** Throw away a paused/failed candidate. The published atlas is untouched. */
-export async function discardAtlasRun(projectDir: string): Promise<AtlasRunState> {
+export function discardAtlasRun(projectDir: string): Promise<AtlasRunState> {
+  return withProjectLock(projectDir, () => discardAtlasRunLocked(projectDir));
+}
+
+async function discardAtlasRunLocked(projectDir: string): Promise<AtlasRunState> {
   const root = assertProjectDir(projectDir);
   const state = await readAtlasRunState(root);
   if (!state) throw new Error('No Atlas run to discard.');

@@ -13,6 +13,7 @@ interface ProjectInfo {
   atlas: { published: boolean; manifest: { generatedAt?: string; runId?: string } | null };
   atlasRun: AtlasRunState | null;
   askEnabled: boolean;
+  csrfToken: string;
 }
 
 interface RunSummary {
@@ -98,7 +99,7 @@ function Overview({ graph, project, verifications }: { graph: AtlasGraph; projec
         <div className="card"><div className="num status-partial">{gaps}</div><div className="label">Coverage gaps</div></div>
         <div className="card"><div className="num">{Object.keys(verifications).length}</div><div className="label">QA-verified</div></div>
       </div>
-      <p className="meta">Generated {ago(graph.generatedAt)} by run <code>{graph.runId}</code>. Project: <code>{project.projectDir}</code></p>
+      <p className="meta">Generated {ago(graph.generatedAt)} by run <code>{graph.runId}</code>. Project: <code>{project.name}</code></p>
     </>
   );
 }
@@ -200,7 +201,7 @@ function QueryView({ project, onNavigate }: { project: ProjectInfo; onNavigate: 
   const runAsk = async () => {
     setError(null); setBusy(true);
     try {
-      const response = await fetch('/api/atlas/ask', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) });
+      const response = await fetch('/api/atlas/ask', { method: 'POST', headers: { 'content-type': 'application/json', 'x-atlas-csrf': project.csrfToken }, body: JSON.stringify({ question }) });
       const body = await response.json();
       if (!response.ok) throw new Error([body.error, ...(body.validationErrors ?? [])].join(' / '));
       setAnswer(body);

@@ -133,16 +133,27 @@ export function clickPath(graph: AtlasGraph, surfaceId: string): AtlasFlowRecord
     .filter(surface => surface.route === '/' || !inbound.has(surface.id))
     .map(surface => surface.id);
   if (entries.includes(surfaceId)) return [];
-  const queue: Array<{ id: string; path: AtlasFlowRecord[] }> = entries.map(id => ({ id, path: [] }));
+  const outgoing = new Map<string, AtlasFlowRecord[]>();
+  for (const flow of flows) {
+    const edges = outgoing.get(flow.fromSurfaceId) ?? [];
+    edges.push(flow);
+    outgoing.set(flow.fromSurfaceId, edges);
+  }
+  const queue = [...entries];
   const seen = new Set(entries);
-  while (queue.length) {
-    const { id, path } = queue.shift()!;
-    for (const flow of flows) {
-      if (flow.fromSurfaceId !== id || seen.has(flow.toSurfaceId)) continue;
-      const next = [...path, flow];
-      if (flow.toSurfaceId === surfaceId) return next;
+  const previous = new Map<string, AtlasFlowRecord>();
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    for (const flow of outgoing.get(queue[cursor]!) ?? []) {
+      if (seen.has(flow.toSurfaceId)) continue;
       seen.add(flow.toSurfaceId);
-      queue.push({ id: flow.toSurfaceId, path: next });
+      previous.set(flow.toSurfaceId, flow);
+      if (flow.toSurfaceId === surfaceId) {
+        const path: AtlasFlowRecord[] = [];
+        let edge: AtlasFlowRecord | undefined = flow;
+        while (edge) { path.push(edge); edge = previous.get(edge.fromSurfaceId); }
+        return path.reverse();
+      }
+      queue.push(flow.toSurfaceId);
     }
   }
   return null;

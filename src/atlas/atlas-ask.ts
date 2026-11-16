@@ -2,9 +2,9 @@
 // atlas, and the harness rejects any answer citing IDs that do not exist.
 // Adapted from Agent Forge's atlas-query service.
 
-import { mkdirSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { getDataDir, safeSegment } from '../core/paths';
 import type { AgentProvider } from '../providers/types';
 import {
   ATLAS_ANSWER_END,
@@ -72,16 +72,16 @@ export async function askAtlas(options: AtlasAskOptions): Promise<AtlasAskResult
   const question = options.question.trim();
   if (!question) throw new Error('Ask Atlas question cannot be empty');
   if (question.length > MAX_QUESTION_LENGTH) throw new Error(`Ask Atlas question exceeds ${MAX_QUESTION_LENGTH} characters`);
-  const projectKey = resolve(options.projectDir);
+  const projectKey = realpathSync(options.projectDir);
   if (activeProjects.has(projectKey)) throw new AtlasQueryBusyError();
 
   activeProjects.add(projectKey);
+  let scratch: string | undefined;
   try {
     const { root, graph } = await loadPublishedAtlas(projectKey);
     const allowedIds = graphIds(graph);
     if (allowedIds.size === 0) throw new Error('The published UI Atlas contains no queryable IDs');
-    const cwd = join(getDataDir(), 'atlas-ask', safeSegment(projectKey.split(/[\\/]/).pop() ?? 'project', 'project'));
-    mkdirSync(cwd, { recursive: true });
+    const cwd = scratch = mkdtempSync(join(tmpdir(), 'atlas-ask-'));
     const result = await options.provider.run({
       systemPrompt: atlasAnalystPrompt(root),
       prompt: [
@@ -106,6 +106,7 @@ export async function askAtlas(options: AtlasAskOptions): Promise<AtlasAskResult
     const parsed = parseAtlasQueryAnswer(result.finalText, allowedIds);
     return { ...parsed, provider: options.provider.name, model: options.model };
   } finally {
+    if (scratch) rmSync(scratch, { recursive: true, force: true });
     activeProjects.delete(projectKey);
   }
 }

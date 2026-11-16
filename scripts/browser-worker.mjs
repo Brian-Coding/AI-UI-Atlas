@@ -1,3 +1,4 @@
+import { ensureSafeDirectory, writeExclusiveArtifact } from './safe-artifacts.mjs';
 // Node-side Playwright worker.
 //
 // Spawned by src/browser/worker-driver.ts. Listens on a random loopback port
@@ -14,7 +15,7 @@
 // forwarding it here.
 
 import { createServer } from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { chromium } from 'playwright';
@@ -52,18 +53,34 @@ let shutdownPromise = null;
 const browserCreations = new Map();
 // sessionId -> isolated Playwright state (one BrowserContext + one Page).
 const contexts = new Map();
+const evidence = new Map();
+const EVIDENCE_LIMIT = 10_000;
+function appendEvidence(session, kind, entry) {
+  const journal = evidence.get(session.browserSessionId);
+  if (!journal) return;
+  if (journal[kind].length >= EVIDENCE_LIMIT) { journal.complete = false; return; }
+  journal[kind].push(entry);
+}
+function loseEvidence(key) {
+  const journal = evidence.get(key);
+  if (journal) journal.complete = false;
+}
 const contextCreations = new Map();
 const contextGenerations = new Map();
 
 function recordConsole(session, level, text) {
-  session.consoleEntries.push({ level, text, timestamp: Date.now() });
+  const entry = { level, text: text.slice(0, 2000), timestamp: Date.now() };
+  appendEvidence(session, 'console', entry);
+  session.consoleEntries.push(entry);
   if (session.consoleEntries.length > CONSOLE_LIMIT) {
     session.consoleEntries.splice(0, session.consoleEntries.length - CONSOLE_LIMIT);
   }
 }
 
 function recordNetwork(session, entry) {
-  session.networkEntries.push({ ...entry, timestamp: Date.now() });
+  const captured = { ...entry, url: entry.url.slice(0, 4000), timestamp: Date.now() };
+  appendEvidence(session, 'network', captured);
+  session.networkEntries.push(captured);
   if (session.networkEntries.length > NETWORK_LIMIT) {
     session.networkEntries.splice(0, session.networkEntries.length - NETWORK_LIMIT);
   }
@@ -97,6 +114,7 @@ async function ensureBrowser() {
       for (const key of contexts.keys()) {
         contextGenerations.set(key, (contextGenerations.get(key) ?? 0) + 1);
       }
+      for (const key of contexts.keys()) loseEvidence(key);
       contexts.clear();
     });
     return launched;
@@ -171,7 +189,8 @@ const idleSweepTimer = setInterval(async () => {
     if (now - session.lastUsedAt > CONTEXT_IDLE_MS) {
       console.warn(`[browser-worker] closing idle session ${key} (idle ${Math.round((now - session.lastUsedAt) / 60000)}m)`);
       contextGenerations.set(key, (contextGenerations.get(key) ?? 0) + 1);
-      contexts.delete(key);
+      loseEvidence(key);
+  contexts.delete(key);
       try { await session.context.close(); } catch {}
     }
   }
@@ -191,6 +210,7 @@ async function closeSession(browserSessionId) {
   contextGenerations.set(key, (contextGenerations.get(key) ?? 0) + 1);
   const session = contexts.get(key);
   if (!session) return;
+  loseEvidence(key);
   contexts.delete(key);
   try { await session.context.close(); } catch {}
 }
@@ -254,6 +274,18 @@ function send(res, status, obj) {
 }
 
 const handlers = {
+  'POST /evidence/begin': async (body) => {
+    const key = normalizeBrowserSessionId(body.browserSessionId);
+    if (evidence.has(key)) throw new Error('Evidence already started for this session');
+    await ensureSession(key);
+    evidence.set(key, { complete: true, console: [], network: [], screenshots: [] });
+    return { ok: true };
+  },
+  'GET /evidence': async (_body, query) => {
+    const journal = evidence.get(normalizeBrowserSessionId(query.browserSessionId));
+    if (!journal) throw new Error('No run evidence journal');
+    return journal;
+  },
   'GET /status': async (_body, query) => {
     const session = getSession(query.browserSessionId);
     if (!session) return { running: false };
@@ -277,15 +309,18 @@ const handlers = {
       throw new Error('outDir (absolute path) is required');
     }
     const session = await ensureSession(body.browserSessionId);
-    await mkdir(body.outDir, { recursive: true });
+    await ensureSafeDirectory(body.outDir);
     const filePath = join(body.outDir, screenshotFileName(body.name));
+    let bytes;
     if (body.selector) {
       const element = await session.page.$(body.selector);
       if (!element) throw new Error(`Selector not found: ${body.selector}`);
-      await element.screenshot({ path: filePath });
+      bytes = await element.screenshot({ type: 'png' });
     } else {
-      await session.page.screenshot({ path: filePath, fullPage: !!body.fullPage });
+      bytes = await session.page.screenshot({ type: 'png', fullPage: !!body.fullPage });
     }
+    await writeExclusiveArtifact(filePath, bytes);
+    appendEvidence(session, 'screenshots', { path: filePath, sha256: createHash('sha256').update(bytes).digest('hex') });
     return { ok: true, path: filePath };
   },
 

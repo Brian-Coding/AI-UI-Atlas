@@ -79,3 +79,16 @@ describe('selectRunsToPrune', () => {
     expect(selectRunsToPrune(runs, 10)).toEqual([]);
   });
 });
+
+test('schema-invalid JSON and directory-ID mismatch are isolated from listing and pruning', async () => {
+  const runsDir = join(tempDir('invalid-records'), 'runs');
+  const store = new RunStore(runsDir);
+  await store.create(record('run-1'));
+  for (const [id, value] of Object.entries({ empty: {}, alsoempty: {}, wrongid: record('run-1'), badtime: { ...record('badtime'), createdAt: 5 }, badstatus: { ...record('badstatus'), status: 'bogus' } })) {
+    await mkdir(join(runsDir, id));
+    await writeFile(join(runsDir, id, 'run.json'), JSON.stringify(value));
+  }
+  expect((await store.list()).map(r => r.id)).toEqual(['run-1']);
+  expect(await store.prune(1)).toEqual([]);
+  expect(existsSync(join(runsDir, 'wrongid'))).toBe(true);
+});

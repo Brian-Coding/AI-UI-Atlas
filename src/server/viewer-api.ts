@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 // Read-mostly JSON API behind the local viewer UI: the published atlas, the
 // current atlas run, QA runs, and their screenshots. File serving is
 // sandboxed to the atlas directory and each run's screenshot folder.
@@ -14,7 +15,7 @@ import { readJsonBody, RequestBodyError } from '../core/request-body';
 import { isPathInside, isSafeId, projectPaths } from '../core/paths';
 import type { AgentProvider } from '../providers/types';
 import { RunStore } from '../qa/run-store';
-import { errorResponse, jsonResponse } from './http';
+import { errorResponse, jsonResponse, tokensMatch } from './http';
 
 export interface ViewerApiOptions {
   projectDir: string;
@@ -49,6 +50,7 @@ async function serveSandboxed(root: string, relPath: string, allowed: string[]):
 }
 
 export function createViewerApi(options: ViewerApiOptions) {
+  const csrfToken = randomBytes(32).toString('base64url');
   const projectDir = resolve(options.projectDir);
   const paths = projectPaths(projectDir);
   const store = new RunStore(paths.runsDir);
@@ -66,6 +68,7 @@ export function createViewerApi(options: ViewerApiOptions) {
           atlas: { published: existsSync(join(paths.atlasRoot, 'atlas.json')), manifest },
           atlasRun: await readAtlasRunState(projectDir),
           askEnabled: !!options.askProvider,
+          csrfToken,
         });
       }
       if (req.method === 'GET' && path === '/api/atlas/graph') {
@@ -88,6 +91,8 @@ export function createViewerApi(options: ViewerApiOptions) {
       }
       if (req.method === 'POST' && path === '/api/atlas/ask') {
         if (!options.askProvider) return errorResponse('Ask Atlas is disabled. Start the viewer with --allow-ask to enable LLM answers.', 501);
+        if (!tokensMatch(csrfToken, req.headers.get('x-atlas-csrf'))) return errorResponse('Invalid Ask authorization', 403);
+        if (req.headers.get('content-type')?.split(';')[0]?.trim() !== 'application/json') return errorResponse('application/json required', 415);
         const body: any = await readJsonBody(req, 8_000);
         if (typeof body?.question !== 'string' || !body.question.trim()) return errorResponse('question is required');
         const answer = await askAtlas({

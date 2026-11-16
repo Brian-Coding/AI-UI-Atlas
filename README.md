@@ -8,6 +8,19 @@ Claude Code or Codex supplies the reasoning and visual inspection. Chromium supp
 
 ![The Atlas viewer showing the fictional Acme Notes settings screen, its data, code references, and screenshot](docs/images/atlas-viewer.png)
 
+```mermaid
+flowchart LR
+  CLI[CLI / local viewer] --> Harness[Run coordinator + project lock]
+  Harness --> Provider[Claude / Codex / scripted agent]
+  Provider -->|Scoped token| API[Browser API]
+  API --> Worker[Node + Playwright / Chromium]
+  Worker --> Evidence[Harness-owned evidence journal]
+  Harness --> Validate[Artifact + result validation]
+  Evidence --> Validate
+  Validate --> Files[Published Atlas / QA reports]
+  Files --> CLI
+```
+
 ## From discovery to a reproducible finding
 
 - **Map more than routes.** Capture pages, dialogs, tabs, meaningful states, and the paths between them. Connect what users see to the data and code behind it.
@@ -19,7 +32,9 @@ Claude Code or Codex supplies the reasoning and visual inspection. Chromium supp
 
 ## Try it without an LLM account
 
-Install [Bun](https://bun.sh/) 1.3+ and [Node.js](https://nodejs.org/) 20+, then:
+**Private preview:** cloning currently requires repository access.
+
+Install [Bun](https://bun.sh/) 1.4.4+ and [Node.js](https://nodejs.org/) 20+, then:
 
 ```bash
 git clone https://github.com/Brian-Coding/AI-UI-Atlas-QA-Tester.git
@@ -59,6 +74,7 @@ Provider agents run with broad local permissions so they can use browser tools w
 - [CLI and configuration](docs/cli.md): commands, flags, providers, and storage.
 - [Artifact format](docs/artifacts.md): Atlas records, reports, and scripted agents.
 - [Security and data](docs/security.md): local access, agent permissions, and sharing artifacts.
+- [Performance measurements](docs/performance.md) and [changelog](CHANGELOG.md).
 - [Contributing](CONTRIBUTING.md): build, tests, and project structure.
 
 This version tests web applications in Chromium. It does not automate native desktop or mobile controls. Model-driven coverage is exploratory: review the evidence, keep deterministic tests, and treat the Atlas as a dated observation of the app.
@@ -69,6 +85,8 @@ This version tests web applications in Chromium. It does not automate native des
 bun run check          # TypeScript, unit/integration tests, production viewer bundle
 bun run test:browser   # Real Chromium: Atlas, passing/failing QA, and viewer interactions
 ```
+
+`bun run build` emits `dist/THIRD_PARTY_NOTICES.txt`; include it whenever distributing the built viewer.
 
 The browser test requires the browser installation above. Neither check needs a provider account. See [architecture](docs/architecture.md) for the small set of components behind the workflow.
 

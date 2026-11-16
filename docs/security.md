@@ -10,11 +10,11 @@ Do not treat untrusted apps, Atlas text, or questions as safe instructions merel
 
 ## Local services
 
-The Bun server binds only to loopback. API requests check Host and Origin to reject remote origins and rebinding requests. Browser-control endpoints require a random token. The separate Node browser worker also requires a private token and rejects browser-origin requests. Browser contexts are isolated per run and closed when that run ends.
+The Bun server binds only to loopback. API requests require the exact bound scheme, hostname, and port; another loopback name is a different origin. Browser-control endpoints require a random token. Optional Ask requires a separate same-origin CSRF token and JSON content type. The separate Node browser worker also requires a private token and rejects browser-origin requests. Browser contexts are isolated per run and closed when that run ends.
 
 The viewer reads local artifacts without a user login. Do not expose it through a tunnel or public reverse proxy. Other processes running as your user are trusted. The viewer escapes raw Markdown HTML and limits file serving to allowed files inside the relevant Atlas or screenshot directory.
 
-Browser screenshot destinations are run-scoped. Directory cleanup uses guarded operations with expected names and file inventories. These protections reduce accidents; they are not a security boundary against a provider agent with unrestricted shell access or another local process changing files concurrently.
+Browser screenshot destinations are run-scoped. Generated directories reject symlink/junction components; screenshots are written from captured bytes with exclusive creation, so existing files or links cannot be overwritten. Use a new screenshot name for each capture. Directory cleanup uses guarded operations with expected names and file inventories. These protections reduce accidents; they are not a security boundary against a provider agent with unrestricted shell access or another local process changing files concurrently.
 
 ## What can leave the machine
 
@@ -27,3 +27,7 @@ Reports and screenshots may contain application data. Transcripts can include co
 Never publish a run folder blindly. Inspect its JSON, Markdown, screenshots, and transcripts. `.atlas-qa/` is ignored automatically. Published `docs/ui-atlas/` is intentionally shareable only after you review it. Do not use real accounts or sensitive data in the fictional demo.
 
 Report security issues using the instructions in [SECURITY.md](../SECURITY.md).
+
+## Process lifetime
+
+POSIX provider launches own process groups; timeout/cancellation cleans up and verifies the group even after a graceful root exit. Windows uses bounded tree termination. Cleanup failures make provider results inconclusive. This is cooperative lifecycle management: a program that deliberately starts a detached OS session can escape a process group. Live providers and Windows/macOS behavior still need separate validation.

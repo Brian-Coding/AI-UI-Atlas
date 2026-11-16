@@ -64,7 +64,7 @@ export async function terminateNodeChildProcess(
   options: NodeChildTerminationOptions = {},
   dependencies: NodeChildTerminationDependencies = defaultDependencies,
 ): Promise<NodeChildTerminationResult> {
-  if (child.exitCode !== null || child.signalCode !== null) {
+  if (process.platform === 'win32' && (child.exitCode !== null || child.signalCode !== null)) {
     return { exited: true, treeKill: null, directKillAttempted: false, detached: false };
   }
 

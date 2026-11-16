@@ -139,7 +139,7 @@ export class ClaudeProvider implements AgentProvider {
         onEvent: event => handleClaudeEvent(event, state, task.onProgress),
       });
       const finalText = state.finalText || state.lastAssistantText;
-      let error = state.error;
+      let error = outcome.detached ? 'Provider descendant cleanup could not be confirmed' : state.error;
       if (!error && outcome.exitCode !== 0 && !outcome.timedOut && !outcome.aborted) {
         error = outcome.stderr || `Claude CLI exited with code ${outcome.exitCode} and no output`;
       }

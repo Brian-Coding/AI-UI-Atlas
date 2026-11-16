@@ -62,7 +62,7 @@ export function startServer(options: StartServerOptions): RunningServer {
     ...(options.staticRoutes ? { routes: options.staticRoutes } : {}),
     development: false,
     async fetch(req) {
-      if (!isRequestAllowed(req, port)) return new Response('Forbidden', { status: 403 });
+      if (!isRequestAllowed(req, `http://${hostname === '::1' ? '[::1]' : hostname}:${port}`)) return new Response('Forbidden', { status: 403 });
       const url = new URL(req.url);
       const fromBrowser = await browserApi(req, url);
       if (fromBrowser) return fromBrowser;

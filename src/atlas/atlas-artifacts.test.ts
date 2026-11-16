@@ -1,3 +1,4 @@
+import { TINY_PNG } from '../browser/fake-driver';
 import { afterEach, describe, expect, test } from 'bun:test';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
@@ -30,7 +31,7 @@ afterEach(() => {
 
 async function writeValidCandidate(project: string, runId: string): Promise<void> {
   const paths = await createAtlasCandidate(project, runId);
-  await writeFile(join(paths.candidateRoot, 'shots', 'surface-home.png'), PNG_SIGNATURE);
+  await writeFile(join(paths.candidateRoot, 'shots', 'surface-home.png'), TINY_PNG);
   await writeFile(join(paths.candidateRoot, 'atlas.md'), [
     '---',
     'schema_version: 1',
@@ -103,7 +104,7 @@ describe('Atlas candidate publication', () => {
     const result = await validateAtlasCandidate(project, runId);
     expect(result.valid).toBe(false);
     expect(result.errors.some(error => error.includes('README.md is missing'))).toBe(true);
-    expect(result.errors.some(error => error.includes('PNG signature'))).toBe(true);
+    expect(result.errors.some(error => error.includes('valid PNG'))).toBe(true);
   });
 
   test('publishes a valid candidate and archives the previous Atlas', async () => {
@@ -129,7 +130,7 @@ describe('Atlas candidate publication', () => {
     const project = makeProject();
     const runId = 'recover-rollback';
     const canonical = join(project, 'docs', 'ui-atlas');
-    const rollback = join(project, 'docs', `.ui-atlas-rollback-${runId}`);
+    const rollback = join(project, 'docs', '.ui-atlas-staging', `rollback-${runId}`);
     await mkdir(rollback, { recursive: true });
     await writeFile(join(rollback, 'atlas.md'), '# Last good after interrupted swap');
     await writeValidCandidate(project, runId);
@@ -187,6 +188,6 @@ describe('Atlas candidate publication', () => {
     const paths = atlasCandidatePaths(project, runId);
     await discardAtlasCandidate(project, runId);
     expect(existsSync(paths.candidateRoot)).toBe(false);
-    expect(existsSync(paths.candidatesRoot)).toBe(false);
+    expect(await readFile(join(paths.candidatesRoot, '.gitignore'), 'utf8')).toContain('\n*\n');
   });
 });

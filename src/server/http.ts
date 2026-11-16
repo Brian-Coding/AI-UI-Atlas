@@ -31,22 +31,21 @@ export function isLoopbackHost(hostname: string): boolean {
  *      on another port, including the app under test, is refused.
  * Non-browser clients such as curl send no Origin and are allowed.
  */
-export function isRequestAllowed(req: Request, serverPort: number): boolean {
+export function isRequestAllowed(req: Request, serverOrigin: string | number): boolean {
   try {
     const url = new URL(req.url);
     if (!isLoopbackHost(url.hostname)) return false;
+    const expected = typeof serverOrigin === 'number' ? `http://127.0.0.1:${serverOrigin}` : serverOrigin;
+    if (url.origin !== expected) return false;
     const hostHeader = req.headers.get('host');
     if (hostHeader) {
       const host = new URL(`http://${hostHeader}`).hostname;
-      if (!isLoopbackHost(host)) return false;
+      if (hostHeader !== new URL(expected).host) return false;
     }
     const origin = req.headers.get('origin');
     if (origin) {
       if (origin === 'null') return false;
-      const parsed = new URL(origin);
-      if (!isLoopbackHost(parsed.hostname)) return false;
-      const originPort = Number(parsed.port || (parsed.protocol === 'https:' ? 443 : 80));
-      if (originPort !== serverPort) return false;
+      if (origin !== expected) return false;
     }
     return true;
   } catch {

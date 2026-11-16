@@ -19,9 +19,9 @@ Use a specific goal and test data. QA may mutate the application through the UI.
 
 Invalid command arguments and setup errors exit 1. A QA `status` describes execution; a `verdict` describes the tested behavior. For example, a completed run can correctly report FAIL.
 
-The agent must return a structured result tied to this run ID. Assertions and findings cite evidence IDs. PASS requires passing assertions, screenshot evidence, console evidence, and no findings. Referenced screenshots must be PNG files confined to the run's screenshot directory. The harness independently reads the live session's console and network buffers: console errors or HTTP 5xx force FAIL; console warnings or failed requests can downgrade PASS to WARNINGS. Interrupted or failed providers cannot establish a pass.
+The agent must return a structured result tied to this run ID. Assertions and findings cite evidence IDs. PASS requires passing assertions, screenshot evidence, console evidence, and no findings. Referenced screenshots must be PNG files confined to the run's screenshot directory. The harness independently reads an append-only journal that starts before the provider runs: console errors or HTTP 5xx force FAIL; console warnings or failed requests can downgrade PASS to WARNINGS. Interrupted or failed providers cannot establish a pass.
 
-These checks make reports inspectable, not infallible. A model can misunderstand a requirement or miss a screen. Console/network buffers are bounded and the agent clears them at the start of scoped actions. Keep conventional tests for repeatable regression coverage.
+These checks make reports inspectable, not infallible. A model can misunderstand a requirement or miss a screen. Agent-visible console/network buffers are bounded and may be cleared for inspection. Those operations do not clear the harness journal. All events from the run, including initial navigation, count. A replaced/lost session or journal overflow yields INCONCLUSIVE; it cannot refresh a passing verification. Screenshot evidence must decode as a bounded PNG and match the path and hash captured by this run. Keep conventional tests for repeatable regression coverage.
 
 ## Inspect, repeat, and retain
 

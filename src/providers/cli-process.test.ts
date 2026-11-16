@@ -63,3 +63,22 @@ test('Codex adapter retains reconnect notices as progress and failures as errors
   expect(args).toContain('--output-last-message');
   expect(args).toContain('model_reasoning_effort="high"');
 });
+
+test.skipIf(process.platform === 'win32')('timeout cleans descendants after a graceful provider root exit', async () => {
+  const { writeFile } = await import('node:fs/promises');
+  const cwd = tempDir('timeout-tree');
+  const fixture = join(cwd, 'tree.mjs');
+  await writeFile(fixture, `import {writeFileSync} from 'node:fs'; import {spawn} from 'node:child_process';
+    const n=Number(process.argv[2]); writeFileSync(process.argv[3]+'/'+n+'.pid',String(process.pid));
+    if(n<2)spawn(process.execPath,[process.argv[1],String(n+1),process.argv[3]],{stdio:'ignore'});
+    process.on('SIGINT',()=>process.exit(0)); setInterval(()=>{},1000);`);
+  const result = await runCliAgent({ args: [process.execPath, fixture, '0', cwd], cwd, stdinText: 'test', timeoutMs: 600, onEvent() {} });
+  expect(result.timedOut).toBe(true); expect(result.detached).toBe(false);
+  for (const depth of [1, 2]) {
+    const pid = Number(await readFile(join(cwd, `${depth}.pid`), 'utf8'));
+    const probe = Bun.spawn(['ps', '-p', String(pid), '-o', 'stat='], { stdout: 'pipe' });
+    const state = (await new Response(probe.stdout).text()).trim(); await probe.exited;
+    try { expect(state === '' || state.startsWith('Z')).toBe(true); }
+    finally { try { process.kill(pid, 'SIGKILL'); } catch {} }
+  }
+}, 10_000);
