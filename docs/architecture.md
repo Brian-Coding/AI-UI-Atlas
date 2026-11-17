@@ -40,3 +40,21 @@ Provider adapters normalize progress, final text, usage, interruption, and error
 `bun run check` typechecks, runs unit/integration tests, and builds the production viewer. Unit tests use fake browsers and provider subprocess fixtures. `bun run test:browser` drives real Chromium against Acme Notes and the viewer without a paid provider. It verifies a passing flow and an intentionally failing flow, graph publication, query behavior, evidence, API protection, screenshots, and narrow-screen rendering.
 
 Live provider behavior depends on the installed CLI version, model access, sign-in, and account policy. Do not describe a scripted test as a live model test.
+
+## Why the verdict belongs to the harness
+
+The provider chooses browser actions and proposes assertions; it cannot set the final verdict through a browser endpoint. `runQa` validates the envelope, asks the worker for its independent journal, and checks run-specific screenshot hashes. Clearing agent-visible logs leaves the journal intact. Incomplete journal or invalid evidence yields INCONCLUSIVE; captured runtime errors force FAIL. [ADR 001](decisions/001-verdict.md) and [failure modes](FAILURE-MODES.md) link executable counterexamples.
+
+This separates observation from the agent’s narrative, but does not prove semantic truth. A screenshot of the wrong state can be authentic. DOM evaluation is a tool available to the agent, not an independent oracle for every assertion. Provider shells share OS permissions with the harness, and published reports are ordinary files. Review and archive evidence outside that write scope for higher-trust workflows.
+
+## Transactions and concurrency
+
+Atlas publication uses an in-process serial queue and a project-scoped process lock so separate CLI processes cannot publish over each other. Candidates are validated before staging; promotion preserves and restores a prior bundle on failure. This is a recoverable filesystem transaction, not a multi-file snapshot for readers during a directory swap. [ADR 004](decisions/004-atlas-publish.md) explains alternatives. QA run directories are independent; the CLI takes the project lock, while direct library callers own coordination.
+
+The Node worker owns isolated browser sessions and a narrow environment; Bun owns orchestration and validation. That extra process boundary costs startup time but avoids relying on Bun to host Playwright’s process machinery. The worker uses its own private token, distinct from the agent-facing browser API. [ADR 003](decisions/003-origin-tokens.md) documents the local-browser threat model.
+
+## What the test layers establish
+
+Unit tests validate parsing, bounds and path rules. Fake-browser integration tests make journal failure and corruption deterministic. Real-process tests prove timeout/root-exit cleanup with inherited pipes. Real Chromium exercises publication, clean/failing QA, tampering and the viewer. The [six-case eval](evals.md) measures the fixed scripted oracle against defects and healthy controls; it does not establish model detection quality. Live Claude/Codex runs and native Windows/macOS checks remain unperformed.
+
+[Performance](performance.md) retains real baseline/after numbers and their limitations. No new performance claim is made from documentation or accounting changes.

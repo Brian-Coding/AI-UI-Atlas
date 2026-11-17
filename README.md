@@ -1,12 +1,21 @@
 # UI Atlas + QA
 
-**Know your app. Test what matters. Keep the evidence.**
+AI-driven browser verification with guardrails: map the app, test a user goal, and let the harness validate the verdict against captured evidence.
 
-UI Atlas + QA maps a running web app into connected screens, data entities, user flows, source references, and screenshots. Ask where a field appears or how to reach a dialog, then give a testing agent a goal and let it exercise the real app using that map.
+[![CI](https://github.com/Brian-Coding/AI-UI-Atlas-QA-Tester/actions/workflows/ci.yml/badge.svg)](https://github.com/Brian-Coding/AI-UI-Atlas-QA-Tester/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Claude Code or Codex supplies the reasoning and visual inspection. Chromium supplies the browser. The harness validates the agent's result and saves a report you can inspect. Everything runs independently of Agent Forge.
+**No AI account needed:** after `bun install --frozen-lockfile` and `bun run browsers:install`, run `bun run demo:tour`. It maps fictional Acme Notes and catches the planted settings bug. Then `bun run serve examples/demo-app` opens the evidence viewer. Cloning requires access while this preview is private.
 
-![The Atlas viewer showing the fictional Acme Notes settings screen, its data, code references, and screenshot](docs/images/atlas-viewer.png)
+![Real Atlas viewer: scripted QA catches the planted Acme Notes bug with evidence](docs/images/atlas-demo.gif)
+
+*Scripted demo, real Chromium and validation, no model calls. [MP4](docs/images/atlas-demo.mp4) · [Reproduce](docs/media.md).*
+
+**Measured, bounded claim:** the scripted [six-case benchmark](docs/evals.md) detected 12/12 planted-bug runs with 0/6 false positives on healthy controls. That validates this fixed oracle and harness, not live model quality. Live providers were unavailable for this pass.
+
+[Architecture](docs/architecture.md) · [Failure modes + tests](docs/FAILURE-MODES.md) · [Decisions](docs/decisions/README.md) · [Team rollout](docs/ADOPTION.md)
+
+Claude Code or Codex supplies reasoning and visual inspection. The harness validates the proposed result, independently reads browser console/network evidence and checks screenshot provenance. Provider shells still have broad local permissions; this is not a tamper-proof OS sandbox.
 
 ```mermaid
 flowchart LR
@@ -20,6 +29,12 @@ flowchart LR
   Validate --> Files[Published Atlas / QA reports]
   Files --> CLI
 ```
+
+## Why this matters for teams adopting AI
+
+Use the Atlas to give an agent concrete app context, then ask it to exercise one reviewable user journey. The agent proposes assertions; the harness owns the final verdict. Runtime errors override a claimed PASS, and missing or invalid evidence makes the run INCONCLUSIVE. Authentic screenshots and DOM observations can still be misinterpreted: humans compare findings to requirements, approve published artifacts, and retain deterministic CI.
+
+Start with known bugs and healthy controls in week 1, run alongside existing reviews in week 2, and expand only after measuring missed defects, false alarms, review effort and usage. Keep release approval with a human. The [three-week playbook](docs/ADOPTION.md) describes the approval points and provider budget decisions.
 
 ## From discovery to a reproducible finding
 
@@ -74,6 +89,10 @@ Provider agents run with broad local permissions so they can use browser tools w
 - [CLI and configuration](docs/cli.md): commands, flags, providers, and storage.
 - [Artifact format](docs/artifacts.md): Atlas records, reports, and scripted agents.
 - [Security and data](docs/security.md): local access, agent permissions, and sharing artifacts.
+- [Evaluation harness and raw results](docs/evals.md).
+- [Failure modes and regression evidence](docs/FAILURE-MODES.md).
+- [Architecture decisions](docs/decisions/README.md) and [team rollout](docs/ADOPTION.md).
+- [Reproducible demo media](docs/media.md).
 - [Performance measurements](docs/performance.md) and [changelog](CHANGELOG.md).
 - [Contributing](CONTRIBUTING.md): build, tests, and project structure.
 

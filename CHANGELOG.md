@@ -15,3 +15,9 @@
 Follow-up review: enforce screenshot size/type bounds before hashing, release completed harness journals in shared workers, and validate nested run-record fields.
 
 - Follow-up process regression: clean descendant-owned pipes on natural provider exit while retaining the final event.
+
+### Portfolio evidence pass
+
+- Added a six-case real-browser eval with healthy controls, raw results and live-provider flags.
+- Made reported usage and missing accounting explicit in reports/viewer.
+- Added failure-mode/test mapping, ADRs, team rollout, and reproducible scripted demo media.

@@ -33,3 +33,7 @@ Keep changes focused and describe the behavior a user can observe. Add regressio
 A pull request should explain the problem, the resulting behavior, and the checks run. State explicitly if a real provider was tested; passing scripted tests does not establish live provider compatibility.
 
 See [architecture](docs/architecture.md), [artifact format](docs/artifacts.md), and [security](docs/security.md) before changing their contracts. Contributions are made under the [MIT license](LICENSE).
+
+## Portfolio evidence and reproducible demos
+
+Read [failure modes](docs/FAILURE-MODES.md) and [decisions](docs/decisions/README.md) when changing a trust boundary. `bun run eval` runs planted defects and healthy controls through real Chromium. Keep inconclusive runs in denominators and publish raw data when claiming a detection rate. `bun run media` regenerates the fictional recording; inspect frames before committing. See [media instructions](docs/media.md).
