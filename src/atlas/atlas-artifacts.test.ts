@@ -51,15 +51,22 @@ async function writeValidCandidate(project: string, runId: string): Promise<void
     schemaVersion: 1,
     runId,
     generatedAt: '2026-07-14T12:00:00.000Z',
-    entities: [{ id: 'entity.user', name: 'User' }],
+    project: 'Fixture',
+    entities: [{ id: 'entity.user', name: 'User', fields: ['name'], codeRefs: ['src/user.ts'], description: 'App user' }],
     surfaces: [{
       id: 'surface.home',
       name: 'Home',
       status: 'verified',
       screenshotRefs: ['shots/surface-home.png'],
       entityIds: ['entity.user'],
+      route: '/',
+      reach: 'Open the app',
+      description: 'Home page',
+      actions: ['Refresh'],
+      states: ['Ready'],
+      codeRefs: ['src/home.ts'],
     }],
-    flows: [],
+    flows: [{ id: 'flow.refresh', name: 'Refresh home', fromSurfaceId: 'surface.home', toSurfaceId: 'surface.home', trigger: 'Click Refresh' }],
   }, null, 2));
   await writeFile(join(paths.candidateRoot, 'manifest.json'), JSON.stringify({
     schemaVersion: 1,
@@ -179,6 +186,80 @@ describe('Atlas candidate publication', () => {
     await writeFile(graphPath, JSON.stringify(graph));
     const result = await validateAtlasCandidate(project, runId);
     expect(result.errors).toContain('Surface surface.home route must be a string');
+  });
+
+  const invalidStrings = [42, null, {}, ['text']];
+  const invalidArrays = ['text', null, {}, ['text', 42], ['text', null], ['text', {}]];
+  const malformedFields: Array<[string, unknown[]]> = [
+    ['project', invalidStrings],
+    ['generatedAt', [2026, null, {}, ['2026-07-14']]],
+    ...['route', 'reach', 'description'].map(key => [`surfaces.0.${key}`, invalidStrings] as [string, unknown[]]),
+    ...['actions', 'states', 'codeRefs', 'entityIds', 'screenshotRefs'].map(key => [`surfaces.0.${key}`, invalidArrays] as [string, unknown[]]),
+    ...['fields', 'codeRefs'].map(key => [`entities.0.${key}`, invalidArrays] as [string, unknown[]]),
+    ['entities.0.description', invalidStrings],
+    ['flows.0.trigger', invalidStrings],
+    ['flows', ['text', null, {}, [null], ['text']]],
+  ];
+
+  test.each(malformedFields)('rejects malformed %s without replacing the publication', async (field, values) => {
+    const project = makeProject();
+    await writeValidCandidate(project, 'last-good');
+    await promoteAtlasCandidate(project, 'last-good');
+    const canonical = join(project, 'docs', 'ui-atlas');
+    const names = ['atlas.json', 'manifest.json', 'checkpoint.json', 'atlas.md', 'README.md', 'changelog.md', 'shots/surface-home.png'];
+    const previous = await Promise.all(names.map(name => readFile(join(canonical, name))));
+    await writeValidCandidate(project, 'malformed');
+    const graphPath = join(atlasCandidatePaths(project, 'malformed').candidateRoot, 'atlas.json');
+    const original = await readFile(graphPath, 'utf8');
+
+    for (const value of values) {
+      const graph = JSON.parse(original);
+      const keys = field.split('.');
+      const target = keys.slice(0, -1).reduce((record, key) => record[key], graph);
+      target[keys.at(-1)!] = value;
+      // Unverified surfaces may omit evidence, but present references still need valid types.
+      if (field === 'surfaces.0.screenshotRefs') graph.surfaces[0].status = 'unverified';
+      await writeFile(graphPath, JSON.stringify(graph));
+      expect((await validateAtlasCandidate(project, 'malformed')).valid).toBe(false);
+      await expect(promoteAtlasCandidate(project, 'malformed')).rejects.toThrow('Atlas candidate failed validation');
+      expect(await Promise.all(names.map(name => readFile(join(canonical, name))))).toEqual(previous);
+      expect((await validatePublishedAtlas(project)).valid).toBe(true);
+    }
+  });
+
+  test('published validation rejects malformed actions too', async () => {
+    const project = makeProject();
+    await writeValidCandidate(project, 'published-malformed');
+    await promoteAtlasCandidate(project, 'published-malformed');
+    const graphPath = join(project, 'docs', 'ui-atlas', 'atlas.json');
+    const graph = JSON.parse(await readFile(graphPath, 'utf8'));
+    graph.surfaces[0].actions = 'Search notes';
+    await writeFile(graphPath, JSON.stringify(graph));
+    const result = await validatePublishedAtlas(project);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Surface surface.home actions must be an array of strings');
+  });
+
+  test('rejects non-object graphs and accepts omitted or empty optional fields', async () => {
+    const project = makeProject();
+    await writeValidCandidate(project, 'graph-shape');
+    const graphPath = join(atlasCandidatePaths(project, 'graph-shape').candidateRoot, 'atlas.json');
+    const graph = JSON.parse(await readFile(graphPath, 'utf8'));
+    for (const value of [null, false, 42, 'text', []]) {
+      await writeFile(graphPath, JSON.stringify(value));
+      const result = await validateAtlasCandidate(project, 'graph-shape');
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('atlas.json must be an object');
+    }
+    delete graph.project;
+    delete graph.flows;
+    for (const key of ['route', 'reach', 'description', 'actions', 'states', 'codeRefs', 'entityIds', 'screenshotRefs']) delete graph.surfaces[0][key];
+    graph.surfaces[0].status = 'unverified';
+    delete graph.entities[0].description;
+    graph.entities[0].fields = [];
+    graph.entities[0].codeRefs = [];
+    await writeFile(graphPath, JSON.stringify(graph));
+    expect((await validateAtlasCandidate(project, 'graph-shape')).valid).toBe(true);
   });
 
   test('discarding a candidate removes it and its empty container', async () => {

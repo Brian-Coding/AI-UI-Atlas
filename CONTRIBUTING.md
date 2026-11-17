@@ -4,7 +4,7 @@ Help make application maps clearer and QA findings easier to reproduce. A useful
 
 ## Local development
 
-Install Bun 1.3+ and Node 20+, then:
+Install Bun 1.4.4 or newer (tested with 1.4.4) and Node.js 20+, then:
 
 ```bash
 bun install --frozen-lockfile

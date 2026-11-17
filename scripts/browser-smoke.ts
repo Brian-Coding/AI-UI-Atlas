@@ -1,11 +1,11 @@
 // Real Chromium acceptance test. No provider accounts, external app, or LLM calls.
 import assert from 'node:assert/strict';
-import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { buildAtlas } from '../src/atlas/atlas-runner';
 import { loadPublishedAtlas, queryAtlas } from '../src/atlas/atlas-search';
-import { validatePublishedAtlas } from '../src/atlas/atlas-artifacts';
+import { createAtlasCandidate, promoteAtlasCandidate, validateAtlasCandidate, validatePublishedAtlas } from '../src/atlas/atlas-artifacts';
 import { WorkerBrowserDriver } from '../src/browser/worker-driver';
 import { ScriptedProvider } from '../src/providers/scripted';
 import { runQa } from '../src/qa/qa-runner';
@@ -34,6 +34,21 @@ try {
   const { graph } = await loadPublishedAtlas(projectDir);
   assert.equal(queryAtlas(graph, 'where are tags shown?').intent, 'entity-surfaces');
   console.log('PASS: built and queried five real app surfaces with Chromium screenshots');
+
+  // A malformed model response must not replace the Atlas used by the viewer below.
+  const malformed = await createAtlasCandidate(projectDir, 'malformed-actions');
+  await cp(malformed.canonicalRoot, malformed.candidateRoot, { recursive: true });
+  for (const name of ['atlas.json', 'manifest.json', 'checkpoint.json']) {
+    const path = join(malformed.candidateRoot, name);
+    const record = JSON.parse(await readFile(path, 'utf8'));
+    record.runId = 'malformed-actions';
+    if (name === 'atlas.json') record.surfaces[0].actions = 'Search notes';
+    await writeFile(path, JSON.stringify(record));
+  }
+  assert.equal((await validateAtlasCandidate(projectDir, 'malformed-actions')).valid, false);
+  await assert.rejects(promoteAtlasCandidate(projectDir, 'malformed-actions'), /actions must be an array of strings/);
+  assert.equal((await validatePublishedAtlas(projectDir)).valid, true);
+  assert.deepEqual((await loadPublishedAtlas(projectDir)).graph, graph);
 
   const common = { projectDir, driver, provider: new ScriptedProvider(scriptedQa) };
   const good = await runQa({ ...common, url, goal: 'Browse notes and open a note' });
@@ -88,7 +103,7 @@ try {
   await driver.waitForReady(session);
   assert.equal(await driver.evaluate(session, 'document.documentElement.scrollWidth <= window.innerWidth'), true);
   assert.equal((await driver.getConsole(session)).filter(e => e.level === 'error').length, 0);
-  console.log('PASS: viewer bundles and renders, filters, searches, displays reports and screenshots, and fits mobile');
+  console.log('PASS: after malformed publication is rejected, viewer renders the previous Atlas, filters, searches, displays reports and screenshots, and fits mobile');
 } finally {
   await server?.stop();
   await driver.close();

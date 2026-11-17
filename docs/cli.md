@@ -59,11 +59,12 @@ Provider CLIs use their existing sign-in and environment configuration. No API k
 | --- | --- |
 | `docs/ui-atlas/` | Published Atlas, Markdown, graph, metadata, screenshots |
 | `docs/.ui-atlas-candidates/` | In-progress Atlas candidates |
+| `docs/.ui-atlas-staging/` | Publication staging and rollback directories |
 | `.atlas-qa/atlas-run.json` | Latest Atlas run state |
 | `.atlas-qa/atlas-transcripts/` | Provider event streams from Atlas runs |
 | `.atlas-qa/runs/` | QA records and evidence |
 | `.atlas-qa/surface-verifications.json` | Last passing QA observation per surface |
 
-`.atlas-qa/` creates its own ignore file. Add `docs/.ui-atlas-candidates/`, `docs/.ui-atlas-publish-*/`, and `docs/.ui-atlas-rollback-*/` to the app's `.gitignore`. Review published Atlas files before choosing to commit them.
+`.atlas-qa/`, `docs/.ui-atlas-candidates/`, and `docs/.ui-atlas-staging/` create their own ignore files. Review published Atlas files before choosing to commit them.
 
-Scratch data defaults to `%LOCALAPPDATA%\ui-atlas-qa` on Windows or `$XDG_DATA_HOME/ui-atlas-qa` / `~/.local/share/ui-atlas-qa` elsewhere. It contains Ask scratch space and ad-hoc screenshots. No Agent Forge state or installation is read.
+Scratch data for ad-hoc screenshots defaults to `%LOCALAPPDATA%\ui-atlas-qa` on Windows or `$XDG_DATA_HOME/ui-atlas-qa` / `~/.local/share/ui-atlas-qa` elsewhere. Ask uses a fresh OS temporary directory per call and removes it on completion. No Agent Forge state or installation is read.

@@ -315,10 +315,13 @@ export async function validateAtlasBundle(bundleRoot: string, runId: string): Pr
   let surfaceCount = 0;
   let entityCount = 0;
   let verifiedSurfaceCount = 0;
-  if (graph) {
+  if (!graph || typeof graph !== 'object' || Array.isArray(graph)) {
+    errors.push('atlas.json must be an object');
+  } else {
     if (graph.schemaVersion !== ATLAS_SCHEMA_VERSION) errors.push(`atlas.json schemaVersion must be ${ATLAS_SCHEMA_VERSION}`);
     if (graph.runId !== runId) errors.push('atlas.json runId does not match this run');
-    if (!graph.generatedAt || !Number.isFinite(Date.parse(graph.generatedAt))) errors.push('atlas.json generatedAt must be an ISO timestamp');
+    if (typeof graph.generatedAt !== 'string' || !Number.isFinite(Date.parse(graph.generatedAt))) errors.push('atlas.json generatedAt must be an ISO timestamp');
+    if (graph.project !== undefined && typeof graph.project !== 'string') errors.push('atlas.json project must be a string');
     if (!Array.isArray(graph.surfaces) || graph.surfaces.length === 0) errors.push('atlas.json must contain at least one surface');
     if (!Array.isArray(graph.entities)) errors.push('atlas.json entities must be an array');
     if (graph.flows !== undefined && !Array.isArray(graph.flows)) errors.push('atlas.json flows must be an array when present');
@@ -337,6 +340,13 @@ export async function validateAtlasBundle(bundleRoot: string, runId: string): Pr
       else if (entityIds.has(entity.id)) errors.push(`Duplicate entity ID: ${entity.id}`);
       else entityIds.add(entity.id);
       if (typeof entity?.name !== 'string' || !entity.name.trim()) errors.push(`Entity ${String(entity?.id)} has no name`);
+      if (entity?.description !== undefined && typeof entity.description !== 'string') errors.push(`Entity ${String(entity?.id)} description must be a string`);
+      for (const key of ['fields', 'codeRefs'] as const) {
+        const value = entity?.[key];
+        if (value !== undefined && (!Array.isArray(value) || value.some(item => typeof item !== 'string'))) {
+          errors.push(`Entity ${String(entity?.id)} ${key} must be an array of strings`);
+        }
+      }
     }
 
     for (const surface of surfaces) {
@@ -346,6 +356,12 @@ export async function validateAtlasBundle(bundleRoot: string, runId: string): Pr
       if (typeof surface?.name !== 'string' || !surface.name.trim()) errors.push(`Surface ${String(surface?.id)} has no name`);
       for (const key of ['route', 'reach', 'description'] as const) {
         if (surface?.[key] !== undefined && typeof surface[key] !== 'string') errors.push(`Surface ${String(surface?.id)} ${key} must be a string`);
+      }
+      for (const key of ['actions', 'states', 'codeRefs', 'entityIds', 'screenshotRefs'] as const) {
+        const value = surface?.[key];
+        if (value !== undefined && (!Array.isArray(value) || value.some(item => typeof item !== 'string'))) {
+          errors.push(`Surface ${String(surface?.id)} ${key} must be an array of strings`);
+        }
       }
       if (!['verified', 'partial', 'unverified', 'excluded'].includes(surface?.status)) {
         errors.push(`Surface ${String(surface?.id)} has invalid status`);
@@ -375,6 +391,7 @@ export async function validateAtlasBundle(bundleRoot: string, runId: string): Pr
       if (!surfaceIds.has(flow?.fromSurfaceId)) errors.push(`Flow ${String(flow?.id)} has unknown fromSurfaceId`);
       if (!surfaceIds.has(flow?.toSurfaceId)) errors.push(`Flow ${String(flow?.id)} has unknown toSurfaceId`);
       if (typeof flow?.name !== 'string' || !flow.name.trim()) errors.push(`Flow ${String(flow?.id)} has no name`);
+      if (flow?.trigger !== undefined && typeof flow.trigger !== 'string') errors.push(`Flow ${String(flow?.id)} trigger must be a string`);
     }
 
     if (checkpoint && Array.isArray(checkpoint.completedSurfaceIds)) {

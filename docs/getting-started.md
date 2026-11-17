@@ -2,7 +2,7 @@
 
 ## Install and check the runtime
 
-Use Bun 1.3+ for the application and Node.js 20+ for the Playwright worker. Linux, macOS, and Windows paths are supported; the automated browser smoke test is also useful for checking a new machine.
+Use Bun 1.4.4 or newer (tested with 1.4.4) for the application and Node.js 20+ for the Playwright worker. Linux, macOS, and Windows paths are supported; the automated browser smoke test is also useful for checking a new machine.
 
 ```bash
 git clone https://github.com/Brian-Coding/AI-UI-Atlas-QA-Tester.git

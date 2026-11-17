@@ -2,6 +2,7 @@
 
 ## Unreleased — 2026-11-16 (private preview)
 
+- Reject malformed graph field types before publication, preserving the last valid Atlas and preventing viewer failures.
 - Separate run evidence from clearable browser buffers; incomplete/lost evidence cannot produce PASS.
 - Write screenshots exclusively beneath checked directories, decode bounded PNGs, and verify QA capture hashes.
 - Verify owned POSIX process-group cleanup after timeout/cancellation, including graceful parent exits.
