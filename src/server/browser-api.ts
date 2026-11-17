@@ -42,7 +42,7 @@ class BadRequest extends Error {
   }
 }
 
-function requireString(body: any, key: string): string {
+function requireString(body: Record<string, unknown>, key: string): string {
   const value = body?.[key];
   if (typeof value !== 'string' || value.length === 0) throw new BadRequest(`${key} required`);
   return value;
@@ -98,7 +98,7 @@ export function createBrowserApi(options: BrowserApiOptions) {
     }
   }
 
-  async function screenshotDirectory(sessionId: string, body: any): Promise<string> {
+  async function screenshotDirectory(sessionId: string, body: Record<string, unknown>): Promise<string> {
     const grant = sessions.get(sessionId);
     if (body.runId !== undefined && body.runId !== null && body.runId !== '') {
       if (!isSafeId(body.runId)) throw new BadRequest('invalid runId');
@@ -126,11 +126,11 @@ export function createBrowserApi(options: BrowserApiOptions) {
     return requested;
   }
 
-  async function readBody(req: Request): Promise<any> {
+  async function readBody(req: Request): Promise<Record<string, unknown>> {
     try {
       const body = await readJsonBody(req, BODY_LIMIT_BYTES);
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BadRequest('Request body must be a JSON object');
-      return body;
+      return body as Record<string, unknown>;
     } catch (error) {
       if (error instanceof RequestBodyError) throw new BadRequest(error.message, error.status);
       throw error;
@@ -139,7 +139,7 @@ export function createBrowserApi(options: BrowserApiOptions) {
 
   type Handler = (req: Request, url: URL) => Promise<unknown>;
 
-  const post = (endpoint: string, run: (body: any, sessionId: string) => Promise<unknown>): Handler =>
+  const post = (endpoint: string, run: (body: Record<string, unknown>, sessionId: string) => Promise<unknown>): Handler =>
     async req => {
       const body = await readBody(req);
       const sessionId = sessionIdFrom(body.browserSessionId);
