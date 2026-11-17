@@ -131,3 +131,20 @@ test('oversized screenshots become inconclusive before hashing and completed jou
   expect(run.validationErrors?.join()).toContain('bounded regular PNG');
   await expect(opts.driver.readEvidence(run.browserSessionId)).rejects.toThrow('No run evidence journal');
 });
+
+test('per-run accounting survives JSON and Markdown, including unknown and reported zero', async () => {
+  for (const usage of [undefined, { inputTokens: 30, outputTokens: 5, costUsd: 0 }]) {
+    const opts = options();
+    const delegate = opts.provider;
+    const provider: AgentProvider = { name: 'usage-fixture', async run(task) {
+      return { ...await delegate.run(task), usage };
+    } };
+    const outcome = await runQa({ ...opts, provider });
+    const json = await Bun.file(join(outcome.runDir, 'report.json')).json();
+    expect(json.usage).toEqual(usage);
+    const report = await Bun.file(outcome.reportPath).text();
+    expect(report).toContain(`**Reported input tokens:** ${usage?.inputTokens ?? 'unknown'}`);
+    expect(report).toContain(`**Reported output tokens:** ${usage?.outputTokens ?? 'unknown'}`);
+    expect(report).toContain(`**Reported cost:** ${usage ? '$0.0000' : 'unknown'}`);
+  }
+});

@@ -1,3 +1,4 @@
+import { reportedNumber, reportedSum } from './usage';
 import { existsSync } from 'node:fs';
 import { extname, win32 as win32Path } from 'node:path';
 import { ArgvTooLongError, resolveCliBinary } from '../core/process';
@@ -103,13 +104,11 @@ export function handleClaudeEvent(
     const isError = event.is_error === true || (typeof event.subtype === 'string' && event.subtype.startsWith('error'));
     if (isError) state.error = resultText || `Claude reported ${event.subtype ?? 'an error'}`;
     else if (resultText) state.finalText = resultText;
-    if (typeof event.total_cost_usd === 'number') state.usage.costUsd = event.total_cost_usd;
+    state.usage.costUsd = reportedNumber(event.total_cost_usd);
     const usage = event.usage;
     if (usage && typeof usage === 'object') {
-      state.usage.inputTokens = (Number(usage.input_tokens) || 0)
-        + (Number(usage.cache_creation_input_tokens) || 0)
-        + (Number(usage.cache_read_input_tokens) || 0);
-      state.usage.outputTokens = Number(usage.output_tokens) || 0;
+      state.usage.inputTokens = reportedSum(usage.input_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens);
+      state.usage.outputTokens = reportedNumber(usage.output_tokens);
     }
     return;
   }

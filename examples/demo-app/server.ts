@@ -24,8 +24,10 @@ const PAGES: Record<string, string> = {
   '/about': 'about.html',
 };
 
-export function startDemoServer(port = Number(process.env.PORT ?? 4400)) {
-  const notes = createNotes();
+export type DemoVariant = 'settings-error' | 'settings-ok' | 'settings-silent' | 'notes-empty' | 'note-title-empty' | 'notes-ok';
+
+export function startDemoServer(port = Number(process.env.PORT ?? 4400), variant: DemoVariant = 'settings-error') {
+  const notes = variant === 'notes-empty' ? [] : createNotes();
   return Bun.serve({
     port,
     hostname: '127.0.0.1',
@@ -43,14 +45,17 @@ export function startDemoServer(port = Number(process.env.PORT ?? 4400)) {
       const noteMatch = url.pathname.match(/^\/api\/notes\/([a-z0-9]+)$/);
       if (noteMatch && req.method === 'GET') {
         const note = notes.find(item => item.id === noteMatch[1]);
-        return note ? Response.json(note) : Response.json({ error: 'not found' }, { status: 404 });
+        return note ? Response.json(variant === 'note-title-empty' ? { ...note, title: '' } : note) : Response.json({ error: 'not found' }, { status: 404 });
       }
       if (url.pathname === '/api/settings' && req.method === 'POST') {
+        if (variant !== 'settings-error') return Response.json({ settings: { theme: 'light' } });
         // Deliberate bug for the QA demo: the handler crashes on every save.
         return Response.json({ error: 'TypeError: Cannot read properties of undefined (reading \'theme\')' }, { status: 500 });
       }
       const page = PAGES[url.pathname];
-      if (page) return new Response(Bun.file(join(PUBLIC_DIR, page)), { headers: { 'content-type': 'text/html; charset=utf-8' } });
+      if (page) return new Response(variant === 'settings-silent' && page === 'settings.html'
+        ? (await Bun.file(join(PUBLIC_DIR, page)).text()).replace(/status.textContent = `Saved[^;]+;/, "status.textContent = '';")
+        : Bun.file(join(PUBLIC_DIR, page)), { headers: { 'content-type': 'text/html; charset=utf-8' } });
       if (url.pathname === '/app.css') return new Response(Bun.file(join(PUBLIC_DIR, 'app.css')), { headers: { 'content-type': 'text/css' } });
       if (url.pathname === '/app.js') return new Response(Bun.file(join(PUBLIC_DIR, 'app.js')), { headers: { 'content-type': 'text/javascript' } });
       return new Response('Not found', { status: 404 });

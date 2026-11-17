@@ -1,3 +1,4 @@
+import { reportedNumber, reportedSum } from './usage';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { extname, join, win32 as win32Path } from 'node:path';
@@ -118,9 +119,11 @@ export function handleCodexEvent(event: any, state: CodexStreamState, onProgress
   }
   if (event.type === 'turn.completed' && event.usage && typeof event.usage === 'object') {
     const usage = event.usage;
-    state.usage.inputTokens = (state.usage.inputTokens ?? 0) + (Number(usage.input_tokens) || 0);
-    state.usage.outputTokens = (state.usage.outputTokens ?? 0)
-      + (Number(usage.output_tokens) || 0) + (Number(usage.reasoning_output_tokens) || 0);
+    const input = reportedNumber(usage.input_tokens);
+    const output = reportedNumber(usage.output_tokens);
+    if (input !== undefined) state.usage.inputTokens = reportedSum(state.usage.inputTokens, input);
+    // Preserve the reported output aggregate; do not add other token fields.
+    if (output !== undefined) state.usage.outputTokens = reportedSum(state.usage.outputTokens, output);
     return;
   }
   if (event.type === 'task_complete' && typeof event.last_agent_message === 'string' && event.last_agent_message) {

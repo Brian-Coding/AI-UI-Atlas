@@ -303,6 +303,8 @@ function RunDetail({ id, onBack }: { id: string; onBack: () => void }) {
           {run.changeDescription && <><dt>Change</dt><dd>{run.changeDescription}</dd></>}
           <dt>Provider</dt><dd>{run.provider}{run.model ? ` (${run.model})` : ''}</dd>
           <dt>Status</dt><dd>{run.status}</dd>
+          <dt>Reported tokens</dt><dd>{run.usage?.inputTokens ?? 'unknown'} input / {run.usage?.outputTokens ?? 'unknown'} output</dd>
+          <dt>Reported cost</dt><dd>{run.usage?.costUsd === undefined ? 'unknown' : `$${run.usage.costUsd.toFixed(4)}`}</dd>
         </dl>
         {!!run.validationErrors?.length && <div className="banner">Harness validation:<ul>{run.validationErrors.map(e => <li key={e}>{e}</li>)}</ul></div>}
         {!!run.assertions?.length && <>

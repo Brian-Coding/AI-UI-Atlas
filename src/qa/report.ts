@@ -32,7 +32,9 @@ export function renderRunReport(run: QaRunRecord, narrative: string, reportPath:
     lines.push(`- **Duration:** ${seconds}s`);
   }
   if (run.atlasUsed) lines.push('- **UI Atlas:** consulted');
-  if (run.usage?.costUsd !== undefined) lines.push(`- **Reported cost:** $${run.usage.costUsd.toFixed(4)}`);
+  lines.push(`- **Reported input tokens:** ${run.usage?.inputTokens ?? 'unknown'}`);
+  lines.push(`- **Reported output tokens:** ${run.usage?.outputTokens ?? 'unknown'}`);
+  lines.push(`- **Reported cost:** ${run.usage?.costUsd === undefined ? 'unknown' : '$' + run.usage.costUsd.toFixed(4)}`);
   lines.push('');
 
   if (run.validationErrors?.length) {
