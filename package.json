@@ -24,7 +24,8 @@
     "test:browser": "bun scripts/browser-smoke.ts && bun scripts/browser-regressions.ts",
     "benchmark": "bun scripts/benchmark.ts",
     "benchmark:query": "bun scripts/benchmark-query.ts",
-    "eval": "bun scripts/eval.ts"
+    "eval": "bun scripts/eval.ts",
+    "media": "bun scripts/media.ts"
   },
   "dependencies": {
     "marked": "^15.0.12",
