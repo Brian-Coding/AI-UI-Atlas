@@ -111,4 +111,4 @@ The browser test requires the browser installation above. Neither check needs a 
 
 ## License
 
-[MIT](LICENSE). Extracted from [Agent Forge](https://github.com/Brian-Coding/AI-Agent-Forge) and packaged as an independent tool.
+[MIT](LICENSE). Packaged as an independent tool alongside [Agent Forge](https://github.com/Brian-Coding/Agent-Forge).

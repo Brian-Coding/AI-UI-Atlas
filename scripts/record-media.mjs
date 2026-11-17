@@ -9,6 +9,8 @@ const browser = await chromium.launch();
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, recordVideo: { dir: join(root, 'video'), size: { width: 1280, height: 800 } } });
   const page = await context.newPage();
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(15000);
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   // Recording annotation is explicitly labeled; application results are untouched.
   const caption = async text => page.evaluate(text => {

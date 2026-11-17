@@ -1,5 +1,8 @@
 # Changelog
 
+- Preserve reported QA usage when later evidence validation fails.
+- Bound media recorder waits and link the current companion project.
+
 ## Unreleased — 2026-11-16 (private preview)
 
 - Reject malformed graph field types before publication, preserving the last valid Atlas and preventing viewer failures.

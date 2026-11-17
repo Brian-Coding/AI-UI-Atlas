@@ -18,3 +18,5 @@ A PASS means the submitted assertions met the evidence contract for this run. It
 | False positives or missed product bugs | The [eval harness](evals.md) includes healthy controls and silent defects, with warnings/inconclusive retained in denominators. | Fixed scripted assertions cover only six variants. Passing this benchmark is not evidence of general model effectiveness; live providers are not available on the measurement box. |
 
 See [ADRs](decisions/README.md), [architecture](architecture.md), and [team rollout](ADOPTION.md).
+
+Reported accounting is saved before evidence validation. The runner regression “reported usage survives a journal failure after the provider finishes” checks that an INCONCLUSIVE result retains known input/output tokens and cost in both JSON and Markdown.

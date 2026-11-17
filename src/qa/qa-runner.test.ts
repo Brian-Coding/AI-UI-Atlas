@@ -148,3 +148,18 @@ test('per-run accounting survives JSON and Markdown, including unknown and repor
     expect(report).toContain(`**Reported cost:** ${usage ? '$0.0000' : 'unknown'}`);
   }
 });
+
+test('reported usage survives a journal failure after the provider finishes', async () => {
+  const opts = options();
+  opts.driver.readEvidence = async () => { throw new Error('journal unavailable'); };
+  const delegate = opts.provider;
+  const usage = { inputTokens: 20, outputTokens: 4, costUsd: 0.02 };
+  const provider: AgentProvider = { name: 'usage-fixture', async run(task) { return { ...await delegate.run(task), usage }; } };
+  const outcome = await runQa({ ...opts, provider });
+  expect(outcome.run).toMatchObject({ verdict: 'inconclusive', usage });
+  for (const file of ['run.json', 'report.json']) expect((await Bun.file(join(outcome.runDir, file)).json()).usage).toEqual(usage);
+  const report = await Bun.file(outcome.reportPath).text();
+  expect(report).toContain('**Reported input tokens:** 20');
+  expect(report).toContain('**Reported output tokens:** 4');
+  expect(report).toContain('**Reported cost:** $0.0200');
+});

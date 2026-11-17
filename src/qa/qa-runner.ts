@@ -152,6 +152,8 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
       },
     });
 
+    // Provider accounting remains useful even if subsequent evidence validation fails.
+    await store.update(runId, { usage: result.usage && Object.keys(result.usage).length ? result.usage : undefined });
     const rawReport = redact(result.finalText.trim(), harness.server.token);
     if (result.error) result.error = redact(result.error, harness.server.token);
     await store.writeFile(runId, 'agent-output.md', redact(rawReport, harness.server.token) || '(no output)\n');
