@@ -5,7 +5,11 @@ import { pathToFileURL } from 'node:url';
 import { killProcessTree, waitForProcessExit } from '../src/core/process';
 
 const root = resolve(process.argv[2] || process.cwd());
-const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+const median = (values: number[]) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
+};
 const startup: number[] = [], builds: number[] = [], requests: number[] = [];
 const moduleUrl = (path: string) => JSON.stringify(pathToFileURL(join(root, path)).href);
 
@@ -67,4 +71,5 @@ for (let i = 0; i < 7; i++) {
   if (!result.success) throw new Error('Benchmark build failed');
   builds.push(performance.now() - startedAt);
 }
-console.log(JSON.stringify({ project: 'atlas', startup_ms: median(startup), build_ms: median(builds), request_ms: median(requests), samples: 7 }));
+console.log(JSON.stringify({ project: 'atlas', startup_ms: median(startup), build_ms: median(builds), request_ms: median(requests), samples: 7,
+  rawSamples: { startup_ms: startup, build_ms: builds, request_ms: requests } }));

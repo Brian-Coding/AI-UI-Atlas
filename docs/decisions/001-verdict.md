@@ -8,9 +8,9 @@ A testing agent can claim success, omit runtime errors, clear visible logs, or c
 
 ## Decision
 
-Treat provider output as a proposal. Parse a strict result envelope, resolve evidence references, read the separate run-scoped browser journal, verify screenshot capture hashes, and then compute/store the verdict. Runtime errors force FAIL. Missing evidence, failed providers and interrupted runs produce INCONCLUSIVE. Agent-visible console/network clear operations cannot clear the harness journal.
+Treat provider output as a proposal. Parse a strict result envelope, resolve evidence references, finalize the separate run-scoped browser journal, verify screenshot capture hashes, and then compute/store the verdict. The worker freezes a single snapshot after the provider returns; completeness, runtime checks, and screenshot provenance all use that snapshot. Events received after this explicit cutoff do not extend the observation window. Runtime errors captured through the cutoff force FAIL. Missing evidence, failed providers and interrupted runs produce INCONCLUSIVE. Agent-visible console/network clear operations cannot clear the harness journal.
 
-Implementation: [`runQa`](../../src/qa/qa-runner.ts), [`parseQaResult`](../../src/qa/qa-result.ts), [`corroborateBrowserEvidence` / `validateScreenshotEvidence`](../../src/qa/evidence.ts). [Runner tests](../../src/qa/qa-runner.test.ts) and [real-browser regressions](../../scripts/browser-regressions.ts) include lying PASS, lost journal and tampering cases.
+Implementation: [`runQa`](../../src/qa/qa-runner.ts), [`parseQaResult`](../../src/qa/qa-result.ts), [`corroborateBrowserEvidence` / `validateScreenshotEvidence`](../../src/qa/evidence.ts). [Runner tests](../../src/qa/qa-runner.test.ts) and [real-browser regressions](../../scripts/browser-regressions.ts) include lying PASS, lost journal, tampering, adverse events during final validation, and snapshot stability after the cutoff.
 
 ## Alternatives
 

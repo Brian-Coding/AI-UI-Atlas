@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { WorkerBrowserDriver } from '../src/browser/worker-driver';
 import { BrowserApiClient } from '../src/browser/api-client';
 import { ScriptedProvider } from '../src/providers/scripted';
-import { runQa } from '../src/qa/qa-runner';
+import { exitCodeForRun, runQa } from '../src/qa/qa-runner';
 import { QA_RESULT_START, QA_RESULT_END } from '../src/qa/qa-result';
 import { startServer } from '../src/server/server';
 import { createViewerApi } from '../src/server/viewer-api';
@@ -19,6 +19,73 @@ const app = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: req => new URL(re
 let viewer: ReturnType<typeof startServer> | undefined;
 let foreign: ReturnType<typeof Bun.serve> | undefined;
 try {
+  // Schedule real browser events after the provider returns, while the harness
+  // validates its evidence. Adapted from the reviewer's two-read reproducer:
+  // a clean diagnostic read precedes adverse events immediately before cutoff.
+  for (const mode of ['console-error', 'http-500', 'overflow', 'lost-session']) {
+    const read = driver.readEvidence.bind(driver);
+    const finalize = driver.finalizeEvidence.bind(driver);
+    let injected = false;
+    const inject = async (id: string) => {
+      assert.equal(injected, false);
+      injected = true;
+      const before = await read(id);
+      assert.equal(before.complete, true);
+      assert.equal(before.console.filter(entry => entry.level === 'error').length, 0);
+      if (mode === 'lost-session') await driver.closeSession(id);
+      else await driver.evaluate(id, mode === 'console-error' ? "console.error('Delayed fixture failure')"
+        : mode === 'http-500' ? "await fetch('/failure')"
+        : "for(let i=0;i<10050;i++) console.log('fixture '+i)");
+    };
+    driver.readEvidence = async () => { throw new Error('Final validation must not read a live journal'); };
+    driver.finalizeEvidence = async id => { await inject(id); return finalize(id); };
+    try {
+      const provider = new ScriptedProvider(async ctx => {
+        await ctx.browser!.navigate(ctx.runtime.targetUrl!);
+        const ref = await ctx.browser!.screenshot({ name: 'landing' });
+        return QA_RESULT_START + JSON.stringify({ schemaVersion: 1, runId: ctx.runtime.runId,
+          verdict: 'pass', summary: 'Fixture passed', findings: [],
+          assertions: [{ id: 'assert.fixture', name: 'Fixture', status: 'passed', evidenceIds: ['evidence.shot'] }],
+          evidence: [{ id: 'evidence.shot', kind: 'screenshot', label: 'Landing', ref },
+            { id: 'evidence.console', kind: 'console', label: 'Console', detail: 'No errors' }],
+        }) + QA_RESULT_END;
+      });
+      const { run } = await runQa({ projectDir: root, url: `http://127.0.0.1:${app.port}/`, goal: 'Check fixture', driver, provider, useAtlas: false });
+      const runtimeError = ['console-error', 'http-500'].includes(mode);
+      assert.equal(injected, true, mode);
+      assert.equal(run.verdict, runtimeError ? 'fail' : 'inconclusive', mode);
+      assert.equal(exitCodeForRun(run), runtimeError ? 1 : 2, mode);
+    } finally {
+      driver.readEvidence = read;
+      driver.finalizeEvidence = finalize;
+    }
+  }
+  console.log('PASS: final validation includes late console errors, HTTP 500, journal overflow, and session loss');
+
+  const cutoffSession = 'cutoff-fixture';
+  await assert.rejects(driver.finalizeEvidence(cutoffSession), /No run evidence journal/);
+  await driver.beginEvidence(cutoffSession);
+  await driver.navigate(cutoffSession, `http://127.0.0.1:${app.port}/`);
+  const cutoffShots = join(root, 'cutoff-shots');
+  await driver.screenshot(cutoffSession, { outDir: cutoffShots, name: 'before' });
+  const frozen = await driver.finalizeEvidence(cutoffSession);
+  assert.equal(frozen.complete, true);
+  assert.ok(frozen.finalizedAt);
+  assert.equal(frozen.console.length, 0);
+  assert.equal(frozen.screenshots.length, 1);
+  await driver.evaluate(cutoffSession, "console.error('After cutoff'); await fetch('/failure'); for(let i=0;i<10050;i++) console.log('after '+i)");
+  await driver.screenshot(cutoffSession, { outDir: cutoffShots, name: 'after' });
+  await driver.clearConsole(cutoffSession);
+  await driver.clearNetwork(cutoffSession);
+  await driver.closeSession(cutoffSession);
+  await driver.navigate(cutoffSession, `http://127.0.0.1:${app.port}/`);
+  assert.deepEqual(await driver.finalizeEvidence(cutoffSession), frozen);
+  assert.deepEqual(await driver.readEvidence(cutoffSession), frozen);
+  await driver.closeSession(cutoffSession);
+  await driver.endEvidence(cutoffSession);
+  await assert.rejects(driver.finalizeEvidence(cutoffSession), /No run evidence journal/);
+  console.log('PASS: finalized snapshots retain their cutoff, logs, completeness, and capture hashes after later events and cleanup');
+
   for (const mode of ['clear', 'view-overflow', 'journal-overflow', 'replace-session', 'tamper', 'signature-only']) {
     const provider = new ScriptedProvider(async ctx => {
       const browser = ctx.browser!;

@@ -43,7 +43,7 @@ Live provider behavior depends on the installed CLI version, model access, sign-
 
 ## Why the verdict belongs to the harness
 
-The provider chooses browser actions and proposes assertions; it cannot set the final verdict through a browser endpoint. `runQa` validates the envelope, asks the worker for its independent journal, and checks run-specific screenshot hashes. Clearing agent-visible logs leaves the journal intact. Incomplete journal or invalid evidence yields INCONCLUSIVE; captured runtime errors force FAIL. [ADR 001](decisions/001-verdict.md) and [failure modes](FAILURE-MODES.md) link executable counterexamples.
+The provider chooses browser actions and proposes assertions; it cannot set the final verdict through a browser endpoint. After the provider returns, `runQa` asks the worker to finalize its independent journal. The worker atomically freezes session health, completeness, logs, and screenshot hashes at that observation cutoff. The runner uses the one snapshot for all evidence checks. Clearing agent-visible logs leaves the journal intact. Incomplete journal or invalid evidence yields INCONCLUSIVE; runtime errors captured through the cutoff force FAIL. [ADR 001](decisions/001-verdict.md) and [failure modes](FAILURE-MODES.md) link executable counterexamples.
 
 This separates observation from the agent’s narrative, but does not prove semantic truth. A screenshot of the wrong state can be authentic. DOM evaluation is a tool available to the agent, not an independent oracle for every assertion. Provider shells share OS permissions with the harness, and published reports are ordinary files. Review and archive evidence outside that write scope for higher-trust workflows.
 
@@ -57,4 +57,4 @@ The Node worker owns isolated browser sessions and a narrow environment; Bun own
 
 Unit tests validate parsing, bounds and path rules. Fake-browser integration tests make journal failure and corruption deterministic. Real-process tests prove timeout/root-exit cleanup with inherited pipes. Real Chromium exercises publication, clean/failing QA, tampering and the viewer. The [six-case eval](evals.md) measures the fixed scripted oracle against defects and healthy controls; it does not establish model detection quality. Live Claude/Codex runs and native Windows/macOS checks remain unperformed.
 
-[Performance](performance.md) retains real baseline/after numbers and their limitations. No new performance claim is made from documentation or accounting changes.
+[Performance](performance.md) retains current measurements, raw samples, source hashes, and reproduction commands. Historical timing comparisons without retained samples were removed; no speedup is claimed.

@@ -51,6 +51,52 @@ test('harness console errors override an agent PASS', async () => {
   expect(exitCodeForRun(run)).toBe(1);
 });
 
+test.each(['console', 'network', 'incomplete', 'screenshot', 'healthy'] as const)(
+  'final validation uses one snapshot for %s evidence without live reads', async kind => {
+    const opts = options(await projectWithAtlas());
+    const finalize = opts.driver.finalizeEvidence.bind(opts.driver);
+    let finalizations = 0;
+    opts.driver.readEvidence = async () => { throw new Error('Unexpected live journal read'); };
+    opts.driver.finalizeEvidence = async id => {
+      finalizations++;
+      const snapshot = await finalize(id);
+      if (kind === 'console') snapshot.console.push({ level: 'error', text: 'Late error', timestamp: Date.now() });
+      if (kind === 'network') snapshot.network.push({ kind: 'response', method: 'GET', url: opts.url, status: 500, ok: false, timestamp: Date.now() });
+      if (kind === 'incomplete') snapshot.complete = false;
+      if (kind === 'screenshot') snapshot.screenshots = [];
+      return snapshot;
+    };
+    const { run } = await runQa(opts);
+    expect(finalizations).toBe(1);
+    const expected = kind === 'healthy' ? 'pass' : ['console', 'network'].includes(kind) ? 'fail' : 'inconclusive';
+    expect(run.verdict).toBe(expected);
+    expect(exitCodeForRun(run)).toBe(expected === 'pass' ? 0 : expected === 'fail' ? 1 : 2);
+    const verifications = await readSurfaceVerifications(opts.projectDir);
+    if (kind === 'healthy') expect(verifications['surface.notes-list']?.runId).toBe(run.id);
+    else expect(verifications).toEqual({});
+  },
+);
+
+test('fake evidence finalization is idempotent and survives later events and cleanup', async () => {
+  const driver = new FakeBrowserDriver({ 'http://app.test/': { console: [{ level: 'error', text: 'After cutoff' }] } });
+  await expect(driver.finalizeEvidence('missing')).rejects.toThrow('No run evidence journal');
+  await driver.beginEvidence('fixture');
+  const frozen = await driver.finalizeEvidence('fixture');
+  expect(frozen.complete).toBe(true);
+  expect(frozen.finalizedAt).toBeTruthy();
+  await driver.navigate('fixture', 'http://app.test/');
+  await driver.screenshot('fixture', { outDir: tempDir(), name: 'late' });
+  await driver.clearConsole('fixture');
+  await driver.clearNetwork('fixture');
+  await driver.closeSession('fixture');
+  expect(await driver.readEvidence('fixture')).toEqual(frozen);
+  const returned = await driver.finalizeEvidence('fixture');
+  returned.complete = false;
+  expect(await driver.finalizeEvidence('fixture')).toEqual(frozen);
+  await driver.endEvidence('fixture');
+  await expect(driver.finalizeEvidence('fixture')).rejects.toThrow('No run evidence journal');
+});
+
 test('warnings are distinct from failures and can fail CI by choice', async () => {
   const opts = options();
   opts.driver = new FakeBrowserDriver({ 'http://app.test/': { console: [{ level: 'warning', text: 'Deprecated API' }] } });
@@ -151,7 +197,7 @@ test('per-run accounting survives JSON and Markdown, including unknown and repor
 
 test('reported usage survives a journal failure after the provider finishes', async () => {
   const opts = options();
-  opts.driver.readEvidence = async () => { throw new Error('journal unavailable'); };
+  opts.driver.finalizeEvidence = async () => { throw new Error('journal unavailable'); };
   const delegate = opts.provider;
   const usage = { inputTokens: 20, outputTokens: 4, costUsd: 0.02 };
   const provider: AgentProvider = { name: 'usage-fixture', async run(task) { return { ...await delegate.run(task), usage }; } };

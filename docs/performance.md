@@ -1,26 +1,26 @@
 # Performance measurements
 
-Measured on November 16, 2026, on this Linux x86_64 development machine with Bun 1.4.4, Node 24.22.1, and Chromium 151. Local fixtures only; no live model calls. These are development observations, not capacity or cross-platform claims.
+Current measurements were collected on November 17, 2026 (America/Chicago; the raw timestamp is November 18 UTC), on Linux x86_64 with Bun 1.4.4 and Node v24.22.1. Local fixtures only; no live model calls. These are development observations, not capacity or cross-platform claims.
 
-These historical timings were recorded during the readiness review; raw samples and an exact after commit were not retained, so they are not independently auditable before/after evidence. The recorded baseline was f27e8cd. Startup, build, and HTTP values are medians of seven sequential runs (ten HTTP requests per run). Startup ends at the first successful readiness response, polled every 5 ms. Builds are in-memory Bun browser builds with minification. Filesystem caches were warm; machine load was not controlled.
+[Retained raw samples](performance-current.json) record the uncommitted evidence-finalization fix on base commit `f48894e48e006d98d41af9cd02e5d817eaf79b8b`, with `dirty: true`, runtime versions, workload sizes, and SHA-256 hashes of the measured source files. Historical before/after tables were removed because their raw samples and exact after commit were not retained. No measured speedup is claimed.
 
-| Measurement | Before | After |
+| Current measurement | Median | Retained samples |
 | --- | ---: | ---: |
-| Server ready | 27.63 ms | 44.92 ms |
-| Browser asset build | 57.95 ms | 44.52 ms |
-| Local readiness HTTP response | 0.052 ms | 0.049 ms |
-| Chromium navigation to usable UI | 134.24 ms | 123.58 ms |
-| UI click through two animation frames | 24.00 ms | 30.50 ms |
+| Server ready | 37.54 ms | 7 launches |
+| Browser asset build | 34.08 ms | 7 builds |
+| Local readiness HTTP response | 0.039 ms | 70 requests |
+| Graph navigation to last surface | 0.48 ms | 25 traversals |
+| Full deterministic query for that surface | 4.15 ms | 25 queries |
 
-UI values use seven fresh browser contexts. They include browser scheduling and are too small/noisy to establish an interaction-speed improvement. The HTTP readiness handler is a transport diagnostic, not an end-to-end provider or app query.
+Startup ends at the first successful readiness response, polled every 5 ms. Each launch uses a fake browser driver and ten sequential HTTP requests. Builds are in-memory Bun browser builds with minification. The readiness endpoint is a transport diagnostic; it does not measure a provider or an end-to-end app query. Filesystem caches were warm; machine load was not controlled. The scripts preserve raw samples in execution order; medians use the middle value, or the average of the two middle values for even sample counts.
 
-The algorithmic change targets navigation through a large graph: breadth-first search repeatedly scanned every flow and copied the path at each step. An adjacency map and predecessor chain now make that traversal linear in graph size.
+The graph workload contains 2,000 surfaces and 1,999 sequential flows, with five warmups followed by 25 samples for each operation. Navigation uses an adjacency map and predecessor chain to avoid repeated full-flow scans and path copying. That traversal is linear in graph size. The regular five-surface demo is too small to demonstrate a useful performance difference.
 
-| 2,000 surfaces / 1,999 sequential flows (25 samples after 5 warmups) | Before | After |
-| --- | ---: | ---: |
-| Navigation to last surface | 22.84 ms | 0.81 ms |
-| Full deterministic query for that surface | 26.50 ms | 4.76 ms |
+Reproduce from the repository root after `bun install --frozen-lockfile`:
 
-The regular five-surface demo is too small to benefit visibly from this change. UI interaction measured switching to Surfaces; its small difference is within scheduling noise. The startup increase includes stricter filesystem and PNG validation dependencies. Build times vary with shared machine load; no build-speed improvement is claimed.
+```bash
+bun run benchmark > /tmp/atlas-server-samples.json
+bun run benchmark:query > /tmp/atlas-query-samples.jsonl
+```
 
-`bun run benchmark` repeats startup/build/readiness measurements. `bun run benchmark:query` repeats the large-graph query measurements. `bun run test:browser` checks the real viewer, clean/failing QA, evidence tampering/loss, screenshot confinement, and cross-origin Ask. Set `ATLAS_QA_CAPTURE_PREVIEW=1` on `bun scripts/browser-smoke.ts` to regenerate the fictional screenshot.
+The first command emits startup/build/readiness summaries and their raw arrays. The second emits one summary and raw array per graph operation. Compare those arrays with the retained file, allowing for machine load and runtime differences. `bun run test:browser` separately checks the real viewer, clean/failing QA, evidence finalization and tampering/loss, screenshot confinement, and cross-origin Ask.

@@ -12,6 +12,7 @@ import { terminateNodeChildProcess, waitForNodeChildExit } from '../core/node-ch
 import type {
   BrowserDriver,
   RunEvidence,
+  FinalizedRunEvidence,
   BrowserStatus,
   ConsoleEntry,
   NetworkEntry,
@@ -223,6 +224,11 @@ export class WorkerBrowserDriver implements BrowserDriver {
   async readEvidence(sessionId: string): Promise<RunEvidence> {
     // Do not restart a lost worker and silently claim a complete journal.
     return this.request('GET', '/evidence' + this.query(sessionId));
+  }
+
+  async finalizeEvidence(sessionId: string): Promise<FinalizedRunEvidence> {
+    // A lost worker must fail validation, never start a replacement journal.
+    return this.request('POST', '/evidence/finalize', { browserSessionId: sessionId });
   }
 
   async navigate(sessionId: string, url: string): Promise<{ url: string; title: string }> {

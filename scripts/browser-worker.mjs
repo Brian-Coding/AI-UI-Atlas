@@ -56,13 +56,13 @@ const evidence = new Map();
 const EVIDENCE_LIMIT = 10_000;
 function appendEvidence(session, kind, entry) {
   const journal = evidence.get(session.browserSessionId);
-  if (!journal) return;
+  if (!journal || journal.finalizedAt) return;
   if (journal[kind].length >= EVIDENCE_LIMIT) { journal.complete = false; return; }
   journal[kind].push(entry);
 }
 function loseEvidence(key) {
   const journal = evidence.get(key);
-  if (journal) journal.complete = false;
+  if (journal && !journal.finalizedAt) journal.complete = false;
 }
 const contextCreations = new Map();
 const contextGenerations = new Map();
@@ -154,6 +154,8 @@ async function ensureSession(browserSessionId) {
       };
       page.on('console', (msg) => recordConsole(session, msg.type() || 'log', msg.text()));
       page.on('pageerror', (err) => recordConsole(session, 'error', err.message));
+      page.on('close', () => loseEvidence(key));
+      page.on('crash', () => loseEvidence(key));
       page.on('response', (response) => {
         recordNetwork(session, {
           kind: 'response',
@@ -283,6 +285,25 @@ const handlers = {
   'POST /evidence/end': async (body) => {
     evidence.delete(normalizeBrowserSessionId(body.browserSessionId));
     return { ok: true };
+  },
+  'POST /evidence/finalize': async (body) => {
+    const key = normalizeBrowserSessionId(body.browserSessionId);
+    const journal = evidence.get(key);
+    if (!journal) throw new Error('No run evidence journal');
+    if (!journal.finalizedAt) {
+      // No await here: session health, completeness, logs and capture hashes
+      // share one cutoff in the worker event loop. Events received afterwards
+      // belong outside this run's observation window, including cleanup events.
+      const session = contexts.get(key);
+      if (!session || session.page.isClosed()) journal.complete = false;
+      journal.finalizedAt = new Date().toISOString();
+      for (const entries of [journal.console, journal.network, journal.screenshots]) {
+        entries.forEach(Object.freeze);
+        Object.freeze(entries);
+      }
+      Object.freeze(journal);
+    }
+    return journal;
   },
   'GET /evidence': async (_body, query) => {
     const journal = evidence.get(normalizeBrowserSessionId(query.browserSessionId));

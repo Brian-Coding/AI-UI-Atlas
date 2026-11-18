@@ -32,7 +32,7 @@ flowchart LR
 
 ## Why this matters for teams adopting AI
 
-Use the Atlas to give an agent concrete app context, then ask it to exercise one reviewable user journey. The agent proposes assertions; the harness owns the final verdict. Runtime errors override a claimed PASS, and missing or invalid evidence makes the run INCONCLUSIVE. Authentic screenshots and DOM observations can still be misinterpreted: humans compare findings to requirements, approve published artifacts, and retain deterministic CI.
+Use the Atlas to give an agent concrete app context, then ask it to exercise one reviewable user journey. The agent proposes assertions; the harness owns the final verdict. Runtime errors captured through the [evidence cutoff](docs/qa.md#understand-the-verdict) override a claimed PASS, and missing or invalid evidence makes the run INCONCLUSIVE. Authentic screenshots and DOM observations can still be misinterpreted: humans compare findings to requirements, approve published artifacts, and retain deterministic CI.
 
 Start with known bugs and healthy controls in week 1, run alongside existing reviews in week 2, and expand only after measuring missed defects, false alarms, review effort and usage. Keep release approval with a human. The [three-week playbook](docs/ADOPTION.md) describes the approval points and provider budget decisions.
 

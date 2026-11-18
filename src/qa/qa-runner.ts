@@ -180,8 +180,9 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
       };
     } else {
       parsed = parseQaResult(rawReport, runId);
-      parsed = await corroborateBrowserEvidence(parsed, harness.driver, browserSessionId);
-      parsed = validateScreenshotEvidence(parsed, screenshotsDir, paths.runsDir, (await harness.driver.readEvidence(browserSessionId)).screenshots);
+      const evidence = await harness.driver.finalizeEvidence(browserSessionId);
+      parsed = corroborateBrowserEvidence(parsed, evidence);
+      parsed = validateScreenshotEvidence(parsed, screenshotsDir, paths.runsDir, evidence.screenshots);
     }
 
     const envelope = parsed.envelope;

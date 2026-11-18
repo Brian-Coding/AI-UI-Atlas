@@ -6,6 +6,7 @@ import { screenshotFileName } from '../../scripts/browser-worker-core.mjs';
 import type {
   BrowserDriver,
   RunEvidence,
+  FinalizedRunEvidence,
   BrowserStatus,
   ConsoleEntry,
   NetworkEntry,
@@ -49,17 +50,36 @@ export class FakeBrowserDriver implements BrowserDriver {
   closed = false;
   private readonly evidence = new Map<string, RunEvidence>();
   async beginEvidence(id: string): Promise<void> {
+    if (this.evidence.has(id)) throw new Error('Evidence already started for this session');
     this.session(id);
     this.evidence.set(id, { complete: true, console: [], network: [], screenshots: [] });
   }
   async endEvidence(id: string): Promise<void> { this.evidence.delete(id); }
   async readEvidence(id: string): Promise<RunEvidence> {
+    return this.snapshotEvidence(id);
+  }
+  private snapshotEvidence(id: string): RunEvidence {
     const journal = this.evidence.get(id);
     if (!journal) throw new Error('No run evidence journal');
+    if (journal.finalizedAt) return structuredClone(journal);
     const session = this.sessions.get(id);
     return structuredClone({ ...journal,
       console: [...journal.console, ...(session?.console ?? [])],
       network: [...journal.network, ...(session?.network ?? [])] });
+  }
+  async finalizeEvidence(id: string): Promise<FinalizedRunEvidence> {
+    const snapshot = this.snapshotEvidence(id);
+    if (!snapshot.finalizedAt) {
+      if (!this.sessions.has(id)) snapshot.complete = false;
+      snapshot.finalizedAt = new Date().toISOString();
+      this.evidence.set(id, structuredClone(snapshot));
+    }
+    return snapshot as FinalizedRunEvidence;
+  }
+
+  private collectingEvidence(id: string): RunEvidence | undefined {
+    const journal = this.evidence.get(id);
+    return journal?.finalizedAt ? undefined : journal;
   }
 
   constructor(
@@ -99,7 +119,7 @@ export class FakeBrowserDriver implements BrowserDriver {
     await mkdir(request.outDir, { recursive: true });
     const path = join(request.outDir, screenshotFileName(request.name));
     await writeFile(path, TINY_PNG, { flag: 'wx' });
-    this.evidence.get(sessionId)?.screenshots.push({ path, sha256: createHash('sha256').update(TINY_PNG).digest('hex') });
+    this.collectingEvidence(sessionId)?.screenshots.push({ path, sha256: createHash('sha256').update(TINY_PNG).digest('hex') });
     return path;
   }
 
@@ -136,7 +156,7 @@ export class FakeBrowserDriver implements BrowserDriver {
 
   async clearConsole(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
-    if (session) { this.evidence.get(sessionId)?.console.push(...session.console); session.console = []; }
+    if (session) { this.collectingEvidence(sessionId)?.console.push(...session.console); session.console = []; }
   }
 
   async getNetwork(sessionId: string): Promise<NetworkEntry[]> {
@@ -145,7 +165,7 @@ export class FakeBrowserDriver implements BrowserDriver {
 
   async clearNetwork(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
-    if (session) { this.evidence.get(sessionId)?.network.push(...session.network); session.network = []; }
+    if (session) { this.collectingEvidence(sessionId)?.network.push(...session.network); session.network = []; }
   }
 
   async status(sessionId: string): Promise<BrowserStatus> {
@@ -156,7 +176,7 @@ export class FakeBrowserDriver implements BrowserDriver {
 
   async closeSession(sessionId: string): Promise<void> {
     this.record('close-session', sessionId);
-    const journal = this.evidence.get(sessionId);
+    const journal = this.collectingEvidence(sessionId);
     if (journal) journal.complete = false;
     this.sessions.delete(sessionId);
   }

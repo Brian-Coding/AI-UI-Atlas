@@ -41,15 +41,21 @@ export interface ScreenshotRequest {
 
 export interface RunEvidence {
   complete: boolean;
+  /** Worker cutoff time; absent while the journal is still collecting. */
+  finalizedAt?: string;
   console: ConsoleEntry[];
   network: NetworkEntry[];
   screenshots: Array<{ path: string; sha256: string }>;
 }
 
+export type FinalizedRunEvidence = RunEvidence & { finalizedAt: string };
+
 export interface BrowserDriver {
   /** Harness-only journal: never exposed by the agent HTTP API. */
   beginEvidence(sessionId: string): Promise<void>;
   readEvidence(sessionId: string): Promise<RunEvidence>;
+  /** Atomically freeze the journal. Repeated calls return the same snapshot. */
+  finalizeEvidence(sessionId: string): Promise<FinalizedRunEvidence>;
   endEvidence(sessionId: string): Promise<void>;
   navigate(sessionId: string, url: string): Promise<{ url: string; title: string }>;
   screenshot(sessionId: string, request: ScreenshotRequest): Promise<string>;
