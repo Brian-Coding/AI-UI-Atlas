@@ -1,16 +1,16 @@
 # Performance measurements
 
-Current measurements were collected on November 17, 2026 (America/Chicago; the raw timestamp is November 18 UTC), on Linux x86_64 with Bun 1.4.4 and Node v24.22.1. Local fixtures only; no live model calls. These are development observations, not capacity or cross-platform claims.
+Current measurements were collected on November 17, 2026, on Linux x86_64 with Bun 1.4.4 and Node v24.22.1. Local fixtures only; no live model calls. These are development observations, not capacity or cross-platform claims.
 
-[Retained raw samples](performance-current.json) record the uncommitted evidence-finalization fix on base commit `f48894e48e006d98d41af9cd02e5d817eaf79b8b`, with `dirty: true`, runtime versions, workload sizes, and SHA-256 hashes of the measured source files. Historical before/after tables were removed because their raw samples and exact after commit were not retained. No measured speedup is claimed.
+[Retained raw samples](performance-current.json) were recorded at commit `5350cd3` (the evidence-finalization fix) with runtime versions and workload sizes. Earlier before/after tables were removed because their raw samples were not retained. No measured speedup is claimed.
 
 | Current measurement | Median | Retained samples |
 | --- | ---: | ---: |
-| Server ready | 37.54 ms | 7 launches |
-| Browser asset build | 34.08 ms | 7 builds |
-| Local readiness HTTP response | 0.039 ms | 70 requests |
-| Graph navigation to last surface | 0.48 ms | 25 traversals |
-| Full deterministic query for that surface | 4.15 ms | 25 queries |
+| Server ready | 34.44 ms | 7 launches |
+| Browser asset build | 32.73 ms | 7 builds |
+| Local readiness HTTP response | 0.038 ms | 70 requests |
+| Graph navigation to last surface | 0.59 ms | 25 traversals |
+| Full deterministic query for that surface | 4.57 ms | 25 queries |
 
 Startup ends at the first successful readiness response, polled every 5 ms. Each launch uses a fake browser driver and ten sequential HTTP requests. Builds are in-memory Bun browser builds with minification. The readiness endpoint is a transport diagnostic; it does not measure a provider or an end-to-end app query. Filesystem caches were warm; machine load was not controlled. The scripts preserve raw samples in execution order; medians use the middle value, or the average of the two middle values for even sample counts.
 
