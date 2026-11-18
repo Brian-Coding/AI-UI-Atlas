@@ -5,8 +5,8 @@
 Use Bun 1.4.4 or newer (tested with 1.4.4) for the application and Node.js 20+ for the Playwright worker. Automated validation runs on Linux. Path and process handling includes macOS and Windows, but native runs on those platforms remain unverified; use the browser smoke test when checking a new machine.
 
 ```bash
-git clone https://github.com/Brian-Coding/AI-UI-Atlas-QA-Tester.git
-cd AI-UI-Atlas-QA-Tester
+git clone https://github.com/Brian-Coding/AI-UI-Atlas.git
+cd AI-UI-Atlas
 bun install --frozen-lockfile
 bun run browsers:install
 bun run doctor

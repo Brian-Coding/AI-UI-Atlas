@@ -2,7 +2,7 @@
 
 AI-driven browser verification with guardrails: map the app, test a user goal, and let the harness validate the verdict against captured evidence.
 
-[![CI](https://github.com/Brian-Coding/AI-UI-Atlas-QA-Tester/actions/workflows/ci.yml/badge.svg)](https://github.com/Brian-Coding/AI-UI-Atlas-QA-Tester/actions/workflows/ci.yml)
+[![CI](https://github.com/Brian-Coding/AI-UI-Atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/Brian-Coding/AI-UI-Atlas/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **No AI account needed:** after `bun install --frozen-lockfile` and `bun run browsers:install`, run `bun run demo:tour`. It maps fictional Acme Notes and catches the planted settings bug. Then `bun run serve examples/demo-app` opens the evidence viewer. Cloning requires access while this preview is private.
@@ -52,8 +52,8 @@ Start with known bugs and healthy controls in week 1, run alongside existing rev
 Install [Bun](https://bun.sh/) 1.4.4+ and [Node.js](https://nodejs.org/) 20+, then:
 
 ```bash
-git clone https://github.com/Brian-Coding/AI-UI-Atlas-QA-Tester.git
-cd AI-UI-Atlas-QA-Tester
+git clone https://github.com/Brian-Coding/AI-UI-Atlas.git
+cd AI-UI-Atlas
 bun install --frozen-lockfile
 bun run browsers:install
 bun run demo:tour
