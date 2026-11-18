@@ -5,7 +5,7 @@ AI-driven browser verification with guardrails: map the app, test a user goal, a
 [![CI](https://github.com/Brian-Coding/AI-UI-Atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/Brian-Coding/AI-UI-Atlas/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**No AI account needed:** after `bun install --frozen-lockfile` and `bun run browsers:install`, run `bun run demo:tour`. It maps fictional Acme Notes and catches the planted settings bug. Then `bun run serve examples/demo-app` opens the evidence viewer. Cloning requires access while this preview is private.
+**No AI account needed:** after `bun install --frozen-lockfile` and `bun run browsers:install`, run `bun run demo:tour`. It maps fictional Acme Notes and catches the planted settings bug. Then `bun run serve examples/demo-app` opens the evidence viewer.
 
 ![Real Atlas viewer: scripted QA catches the planted Acme Notes bug with evidence](docs/images/atlas-demo.gif)
 
@@ -46,8 +46,6 @@ Start with known bugs and healthy controls in week 1, run alongside existing rev
 - **Choose your intelligence.** Use the frontier models available through your own Claude Code or Codex installation. Select a model with `--model`; authentication and billing stay with your provider.
 
 ## Try it without an LLM account
-
-**Private preview:** cloning currently requires repository access.
 
 Install [Bun](https://bun.sh/) 1.4.4+ and [Node.js](https://nodejs.org/) 20+, then:
 

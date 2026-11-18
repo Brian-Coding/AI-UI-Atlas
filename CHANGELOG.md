@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 2026-11-16 (private preview)
+## Unreleased — 2026-11-16
 
 - Reject non-string Ask Atlas citations instead of silently dropping malformed entries.
 - Reject non-object Atlas manifests and checkpoints before publication, preserving the previous bundle.
