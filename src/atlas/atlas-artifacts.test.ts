@@ -14,7 +14,6 @@ import {
 } from './atlas-artifacts';
 
 const tempProjects: string[] = [];
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 function makeProject(): string {
   const project = mkdtempSync(join(tmpdir(), 'atlas-qa-atlas-'));
@@ -88,6 +87,30 @@ async function writeValidCandidate(project: string, runId: string): Promise<void
 }
 
 describe('Atlas candidate publication', () => {
+  test('rejects non-object metadata without replacing the published Atlas', async () => {
+    const project = makeProject();
+    await writeValidCandidate(project, 'published');
+    await promoteAtlasCandidate(project, 'published');
+    const canonical = join(project, 'docs', 'ui-atlas', 'manifest.json');
+    const published = await readFile(canonical, 'utf8');
+    const runId = 'invalid-metadata';
+    await writeValidCandidate(project, runId);
+    const paths = atlasCandidatePaths(project, runId);
+    for (const name of ['manifest.json', 'checkpoint.json']) {
+      const path = join(paths.candidateRoot, name);
+      const original = await readFile(path, 'utf8');
+      for (const value of [null, false, 0, '', []]) {
+        await writeFile(path, JSON.stringify(value));
+        const result = await validateAtlasCandidate(project, runId);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain(`${name} must be a JSON object`);
+        await expect(promoteAtlasCandidate(project, runId)).rejects.toThrow('must be a JSON object');
+        expect(await readFile(canonical, 'utf8')).toBe(published);
+      }
+      await writeFile(path, original);
+    }
+  });
+
   test('rejects a verified surface whose evidence is missing', async () => {
     const project = makeProject();
     const runId = 'missing-evidence';

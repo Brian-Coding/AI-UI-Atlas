@@ -95,7 +95,7 @@ export function handleClaudeEvent(
     for (const block of content) {
       if (block?.type !== 'tool_use') continue;
       const name = String(block.name ?? 'tool');
-      onProgress?.({ type: 'tool', name, summary: summarizeToolInput(name, block.input) });
+      onProgress?.({ type: 'tool', name, summary: summarizeToolInput(block.input) });
     }
     return;
   }

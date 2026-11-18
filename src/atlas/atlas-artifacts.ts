@@ -11,7 +11,7 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { safeMoveDirectory, safeRemoveTree } from '../core/safe-filesystem.mjs';
 
 export const ATLAS_SCHEMA_VERSION = 1;
@@ -162,7 +162,12 @@ export async function createAtlasCandidate(projectRoot: string, runId: string): 
 
 async function readJson<T>(filePath: string, errors: string[], label: string): Promise<T | null> {
   try {
-    return JSON.parse(await readFile(filePath, 'utf8')) as T;
+    const value: unknown = JSON.parse(await readFile(filePath, 'utf8'));
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      errors.push(`${label} must be a JSON object`);
+      return null;
+    }
+    return value as T;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     errors.push(`${label} is missing or invalid JSON: ${message}`);

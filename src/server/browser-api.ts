@@ -139,7 +139,7 @@ export function createBrowserApi(options: BrowserApiOptions) {
 
   type Handler = (req: Request, url: URL) => Promise<unknown>;
 
-  const post = (endpoint: string, run: (body: Record<string, unknown>, sessionId: string) => Promise<unknown>): Handler =>
+  const post = (run: (body: Record<string, unknown>, sessionId: string) => Promise<unknown>): Handler =>
     async req => {
       const body = await readBody(req);
       const sessionId = sessionIdFrom(body.browserSessionId);
@@ -149,13 +149,13 @@ export function createBrowserApi(options: BrowserApiOptions) {
     async (_req, url) => run(sessionIdFrom(url.searchParams.get('browserSessionId')), url);
 
   const routes: Record<string, Handler> = {
-    'POST /navigate': post('navigate', async (body, sessionId) => {
+    'POST /navigate': post(async (body, sessionId) => {
       const url = validateUrl(requireString(body, 'url'));
       track(sessionId, 'navigate', { url });
       emit({ type: 'call', sessionId, endpoint: 'navigate', detail: url });
       return { ok: true, ...(await driver.navigate(sessionId, url)) };
     }),
-    'POST /screenshot': post('screenshot', async (body, sessionId) => {
+    'POST /screenshot': post(async (body, sessionId) => {
       const outDir = await screenshotDirectory(sessionId, body);
       track(sessionId, 'screenshot', { selector: body.selector, fullPage: body.fullPage === true, name: body.name });
       const path = await driver.screenshot(sessionId, {
@@ -167,14 +167,14 @@ export function createBrowserApi(options: BrowserApiOptions) {
       emit({ type: 'screenshot', sessionId, path });
       return { ok: true, path };
     }),
-    'POST /click': post('click', async (body, sessionId) => {
+    'POST /click': post(async (body, sessionId) => {
       const selector = requireString(body, 'selector');
       track(sessionId, 'click', { selector });
       emit({ type: 'call', sessionId, endpoint: 'click', detail: selector });
       await driver.click(sessionId, selector);
       return { ok: true };
     }),
-    'POST /type': post('type', async (body, sessionId) => {
+    'POST /type': post(async (body, sessionId) => {
       const selector = requireString(body, 'selector');
       if (typeof body.text !== 'string') throw new BadRequest('text required');
       track(sessionId, 'type', { selector, textLength: body.text.length });
@@ -182,17 +182,17 @@ export function createBrowserApi(options: BrowserApiOptions) {
       await driver.type(sessionId, selector, body.text);
       return { ok: true };
     }),
-    'POST /wait-for-ready': post('wait-for-ready', async (_body, sessionId) => {
+    'POST /wait-for-ready': post(async (_body, sessionId) => {
       track(sessionId, 'wait-for-ready', {});
       return { ok: true, ...(await driver.waitForReady(sessionId)) };
     }),
-    'POST /evaluate': post('evaluate', async (body, sessionId) => {
+    'POST /evaluate': post(async (body, sessionId) => {
       const script = requireString(body, 'script');
       track(sessionId, 'evaluate', { scriptLength: script.length });
       emit({ type: 'call', sessionId, endpoint: 'evaluate', detail: `${script.length} chars` });
       return { ok: true, result: await driver.evaluate(sessionId, script) };
     }),
-    'POST /viewport': post('viewport', async (body, sessionId) => {
+    'POST /viewport': post(async (body, sessionId) => {
       const width = Number(body.width);
       const height = Number(body.height);
       if (!Number.isInteger(width) || width < 320 || width > 7680) throw new BadRequest('width must be an integer from 320 to 7680');
@@ -201,15 +201,15 @@ export function createBrowserApi(options: BrowserApiOptions) {
       await driver.setViewport(sessionId, width, height);
       return { ok: true, width, height };
     }),
-    'POST /console/clear': post('console/clear', async (_body, sessionId) => {
+    'POST /console/clear': post(async (_body, sessionId) => {
       await driver.clearConsole(sessionId);
       return { ok: true };
     }),
-    'POST /network/clear': post('network/clear', async (_body, sessionId) => {
+    'POST /network/clear': post(async (_body, sessionId) => {
       await driver.clearNetwork(sessionId);
       return { ok: true };
     }),
-    'POST /session/close': post('session/close', async (_body, sessionId) => {
+    'POST /session/close': post(async (_body, sessionId) => {
       await driver.closeSession(sessionId);
       return { ok: true };
     }),

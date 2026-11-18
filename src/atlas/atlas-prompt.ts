@@ -54,7 +54,8 @@ Endpoints (POST bodies are JSON and always include "browserSessionId":"${s}"):
 
 - POST /navigate {"url":"..."}
 - POST /screenshot {"name":"surface-<slug>","selector":"..." (optional),"fullPage":true (optional)}
-  -> Saved as \`${out}/shots/<name>.png\` (same name overwrites). Returns {"path": "..."}.
+  -> Saved as \`${out}/shots/<name>.png\`. Existing names are rejected; use a new suffix for each
+     capture, including when resuming a run. Returns {"path": "..."}.
   -> Look at every screenshot you take with your image/file reading tool.
   -> Name it after the surface ID: surface.settings-modal -> "surface-settings-modal". For several
      states of one surface add a suffix: "surface-settings-modal-billing-tab".
@@ -90,7 +91,7 @@ main component directories. Read package manifests and READMEs.
 
 ### Pass 2: entities (code)
 For each significant data type: its fields, where it is defined, where it is mutated, and which
-components render it. Draft a "entity X appears in component Y" map.
+components render it. Draft an "entity X appears in component Y" map.
 
 ### Pass 3: browser walkthrough
 Navigate to ${ctx.targetUrl}, wait for ready, screenshot the landing state. Then visit every

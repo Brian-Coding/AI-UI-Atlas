@@ -51,7 +51,9 @@ export function parseAtlasQueryAnswer(
     : [];
   if (!answer) errors.push('Atlas Analyst answer is empty');
   if (answer.length > MAX_ANSWER_LENGTH) errors.push('Atlas Analyst answer exceeded the narrative limit');
-  if (!Array.isArray(payload?.citations)) errors.push('Atlas Analyst citations must be an array');
+  if (!Array.isArray(payload?.citations) || payload.citations.some((value: unknown) => typeof value !== 'string')) {
+    errors.push('Atlas Analyst citations must be an array of strings');
+  }
   if (citations.length === 0) errors.push('Atlas Analyst must cite at least one Atlas ID');
   if (citations.length > MAX_CITATIONS) errors.push(`Atlas Analyst cited more than ${MAX_CITATIONS} Atlas IDs`);
   if (new Set(citations).size !== citations.length) errors.push('Atlas Analyst citations must be unique');

@@ -113,7 +113,7 @@ export default async function scriptedQa(ctx: ScriptedAgentContext): Promise<str
 
   const failed = assertions.filter(item => item.status === 'failed');
   const findings = failed.length || errors.length || serverErrors.length ? [{
-    id: 'finding.settings-save-broken',
+    id: testSettings ? 'finding.settings-save-broken' : 'finding.notes-flow-broken',
     severity: 'major',
     title: testSettings ? 'Saving settings fails' : 'Notes flow is broken',
     details: [

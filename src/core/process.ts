@@ -18,7 +18,7 @@ export function generateId(): string {
 // server (not throw a JS error we can catch). We pre-check the serialized
 // argv size and throw a catchable ArgvTooLongError so the caller surfaces a
 // human-readable message instead of crashing.
-// 
+//
 
 const MAX_ARGV_BYTES = 28_000;
 
@@ -131,9 +131,8 @@ export type OperationOrUnwind<T> =
 
 /**
  * Lets an adapter stop awaiting subprocess streams when OS-level termination
- * could not be confirmed.
- * but the run can finish with an explicit warning instead of wedging its
- * entire per-agent send queue forever.
+ * could not be confirmed. The run can report the cleanup failure instead
+ * of waiting indefinitely for subprocess output.
  */
 export function createProcessUnwindSignal(): ProcessUnwindSignal {
   let triggered = false;

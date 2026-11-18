@@ -2,7 +2,7 @@
 
 Measured on November 16, 2026, on this Linux x86_64 development machine with Bun 1.4.4, Node 24.22.1, and Chromium 151. Local fixtures only; no live model calls. These are development observations, not capacity or cross-platform claims.
 
-The baseline was f27e8cd; the after measurements use this readiness implementation. Startup, build, and HTTP values are medians of seven sequential runs (ten HTTP requests per run). Startup ends at the first successful readiness response, polled every 5 ms. Builds are in-memory Bun browser builds with minification. Filesystem caches were warm; machine load was not controlled.
+These historical timings were recorded during the readiness review; raw samples and an exact after commit were not retained, so they are not independently auditable before/after evidence. The recorded baseline was f27e8cd. Startup, build, and HTTP values are medians of seven sequential runs (ten HTTP requests per run). Startup ends at the first successful readiness response, polled every 5 ms. Builds are in-memory Bun browser builds with minification. Filesystem caches were warm; machine load was not controlled.
 
 | Measurement | Before | After |
 | --- | ---: | ---: |
@@ -14,7 +14,7 @@ The baseline was f27e8cd; the after measurements use this readiness implementati
 
 UI values use seven fresh browser contexts. They include browser scheduling and are too small/noisy to establish an interaction-speed improvement. The HTTP readiness handler is a transport diagnostic, not an end-to-end provider or app query.
 
-The meaningful hotspot was navigation through a large graph: breadth-first search repeatedly scanned every flow and copied the path at each step. An adjacency map and predecessor chain now make that traversal linear in graph size.
+The algorithmic change targets navigation through a large graph: breadth-first search repeatedly scanned every flow and copied the path at each step. An adjacency map and predecessor chain now make that traversal linear in graph size.
 
 | 2,000 surfaces / 1,999 sequential flows (25 samples after 5 warmups) | Before | After |
 | --- | ---: | ---: |

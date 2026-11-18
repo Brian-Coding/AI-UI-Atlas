@@ -1,6 +1,6 @@
 # Architecture
 
-The CLI orchestrates one run at a time for an application project. A Bun HTTP server supplies browser tools to the agent. A separate Node process owns Playwright and Chromium. The local React viewer reads the resulting Atlas and QA artifacts.
+The CLI orchestrates Atlas discovery and QA runs for an application project. A Bun HTTP server supplies browser tools to the agent. A separate Node process owns Playwright and Chromium. The local React viewer reads the resulting Atlas and QA artifacts.
 
 ```text
 CLI ── Atlas / QA runner ── provider CLI or scripted agent
@@ -49,7 +49,7 @@ This separates observation from the agent’s narrative, but does not prove sema
 
 ## Transactions and concurrency
 
-Atlas publication uses an in-process serial queue and a project-scoped process lock so separate CLI processes cannot publish over each other. Candidates are validated before staging; promotion preserves and restores a prior bundle on failure. This is a recoverable filesystem transaction, not a multi-file snapshot for readers during a directory swap. [ADR 004](decisions/004-atlas-publish.md) explains alternatives. QA run directories are independent; the CLI takes the project lock, while direct library callers own coordination.
+Atlas build, resume and discard use a project-scoped process lock so separate CLI processes cannot publish over each other. Candidates are validated before staging; promotion preserves and restores a prior bundle on failure. This is a recoverable filesystem transaction, not a multi-file snapshot for readers during a directory swap. [ADR 004](decisions/004-atlas-publish.md) explains alternatives. QA runs use independent directories and do not take the Atlas lock. Serialize QA runs for a project when retaining surface-verification history: concurrent updates to that shared file can overwrite one another. Also coordinate access to shared app test data.
 
 The Node worker owns isolated browser sessions and a narrow environment; Bun owns orchestration and validation. That extra process boundary costs startup time but avoids relying on Bun to host Playwright’s process machinery. The worker uses its own private token, distinct from the agent-facing browser API. [ADR 003](decisions/003-origin-tokens.md) documents the local-browser threat model.
 

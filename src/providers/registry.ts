@@ -3,8 +3,6 @@ import { CodexProvider } from './codex';
 import { loadScriptedProvider } from './scripted';
 import type { AgentProvider } from './types';
 
-export const PROVIDER_NAMES = ['claude', 'codex', 'script:<path>'] as const;
-
 /**
  * Resolve a provider spec:
  *   claude          Claude Code CLI (`claude`)

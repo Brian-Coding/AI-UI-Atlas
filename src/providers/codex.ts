@@ -95,12 +95,12 @@ export function handleCodexEvent(event: any, state: CodexStreamState, onProgress
   }
   if (event.type === 'item.started' && item?.type === 'command_execution') {
     const command = typeof item.command === 'string' ? item.command : '';
-    onProgress?.({ type: 'tool', name: 'shell', summary: summarizeToolInput('shell', { command }) });
+    onProgress?.({ type: 'tool', name: 'shell', summary: summarizeToolInput({ command }) });
     return;
   }
   if (event.type === 'item.started' && (item?.type === 'mcp_tool_call' || item?.type === 'web_search')) {
     const name = String(item.tool ?? item.type);
-    onProgress?.({ type: 'tool', name, summary: summarizeToolInput(name, item.arguments ?? { query: item.query }) });
+    onProgress?.({ type: 'tool', name, summary: summarizeToolInput(item.arguments ?? { query: item.query }) });
     return;
   }
   if (event.type === 'item.completed' && item?.type === 'agent_message') {

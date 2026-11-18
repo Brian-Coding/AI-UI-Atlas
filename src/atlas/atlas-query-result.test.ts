@@ -38,3 +38,12 @@ test('Ask Atlas rejects prose-only and ambiguous envelopes', () => {
   const duplicate = `${envelope({ answer: 'See surface.timeline.', citations: ['surface.timeline'] })}\n${envelope({ answer: 'See entity.event.', citations: ['entity.event'] })}`;
   expect(() => parseAtlasQueryAnswer(duplicate, allowed)).toThrow(/exactly one/);
 });
+
+test('Ask Atlas rejects malformed citations instead of silently dropping them', () => {
+  for (const invalid of [null, 7, {}, ['entity.event']]) {
+    expect(() => parseAtlasQueryAnswer(envelope({
+      answer: 'See surface.timeline.',
+      citations: ['surface.timeline', invalid],
+    }), allowed)).toThrow(/array of strings/);
+  }
+});

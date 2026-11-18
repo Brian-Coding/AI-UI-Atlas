@@ -26,7 +26,7 @@ export function safeSegment(value: string, fallback: string): string {
 
 /**
  * Machine-wide data directory for things that do not belong to one project
- * (ad-hoc screenshots taken outside a run, Ask Atlas scratch space).
+ * (ad-hoc screenshots taken outside a run).
  */
 export function getDataDir(env: NodeJS.ProcessEnv = process.env): string {
   const override = env.ATLAS_QA_DATA_DIR?.trim();

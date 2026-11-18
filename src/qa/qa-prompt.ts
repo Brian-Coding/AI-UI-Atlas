@@ -28,6 +28,7 @@ Endpoints (POST bodies are JSON and always include "browserSessionId":"${s}"):
 - POST /navigate {"url":"..."}
 - POST /screenshot {"runId":"${ctx.runId}","name":"<stable-label>","selector":"..." (optional),"fullPage":true (optional)}
   -> returns {"path":"<absolute png path>"}; screenshots are stored in ${ctx.screenshotDir}.
+  -> Existing names are rejected; use a unique name for each capture.
   -> Open the returned PNG with your file/image reading tool to actually look at the UI.
 - POST /click {"selector":"..."}           (Playwright selectors: CSS, text="Save", role=button[name="Save"])
 - POST /type {"selector":"...","text":"..."}  (replaces the field's value)

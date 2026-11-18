@@ -35,12 +35,12 @@ const ENTITIES = [
 const SURFACES: SurfacePlan[] = [
   {
     id: 'surface.notes-list', name: 'Notes list', route: '/', reach: 'App launch', description: 'Home page listing notes with search.',
-    entityIds: ['entity.note', 'entity.tag'], codeRefs: ['public/index.html:6-14', 'public/index.html:29-37'],
+    entityIds: ['entity.note', 'entity.tag'], codeRefs: ['public/index.html:6-13', 'public/index.html:25-33'],
     actions: ['Search notes', 'Open a note', 'Create a note'], states: ['Empty search result shows "No notes match your search."'],
   },
   {
     id: 'surface.new-note-dialog', name: 'New note dialog', route: '/', reach: 'Notes list -> click "New note"', description: 'Modal form for creating a note.',
-    entityIds: ['entity.note'], codeRefs: ['public/index.html:15-24', 'public/index.html:39-50'], actions: ['Enter title and body', 'Create', 'Cancel'],
+    entityIds: ['entity.note'], codeRefs: ['public/index.html:14-22', 'public/index.html:34-45'], actions: ['Enter title and body', 'Create', 'Cancel'],
     states: ['Missing title shows "A title is required."'],
     prepare: async ctx => { await ctx.browser!.click('#new-note'); },
   },
@@ -50,11 +50,11 @@ const SURFACES: SurfacePlan[] = [
   },
   {
     id: 'surface.settings', name: 'Settings', route: '/settings', reach: 'Header -> "Settings"', description: 'Preferences form. Saving currently fails (see inconsistencies).',
-    entityIds: ['entity.user-settings'], codeRefs: ['public/settings.html:8-31', 'server.ts:48-51'], actions: ['Edit display name', 'Choose theme', 'Toggle weekly digest', 'Save settings'],
+    entityIds: ['entity.user-settings'], codeRefs: ['public/settings.html:8-31', 'server.ts:50-54'], actions: ['Edit display name', 'Choose theme', 'Toggle weekly digest', 'Save settings'],
   },
   {
     id: 'surface.about', name: 'About', route: '/about', reach: 'Header -> "About"', description: 'Static product information.',
-    entityIds: [], codeRefs: ['public/about.html:1-14'], actions: [],
+    entityIds: [], codeRefs: ['public/about.html:1-12'], actions: [],
   },
 ];
 
@@ -118,7 +118,7 @@ export default async function scriptedAtlas(ctx: ScriptedAgentContext): Promise<
   md.push('## 3. Flows', '', ...FLOWS.map(f => `- \`${f.id}\`: \`${f.fromSurfaceId}\` -> \`${f.toSurfaceId}\` via ${f.trigger}`), '',
     '## 4. Coverage summary', '', `All ${surfaces.length} surfaces verified on ${today}.`, '',
     '## 5. Observed inconsistencies', '',
-    '- **Saving settings fails.** `POST /api/settings` returns HTTP 500 (`server.ts:48-51`) and the page assumes success (`public/settings.html:22-29`), so the status stays on "Saving..." and a TypeError is logged.', '',
+    '- **Saving settings fails.** `POST /api/settings` returns HTTP 500 (`server.ts:50-54`) and the page assumes success (`public/settings.html:22-29`), so the status stays on "Saving..." and a TypeError is logged.', '',
     '## 6. Open questions', '', '- None for this scripted scan.', '',
     '## 7. Changes since last scan', '', '- Initial scan.', '');
   await writeFile(join(outputDir, 'atlas.md'), md.join('\n'));

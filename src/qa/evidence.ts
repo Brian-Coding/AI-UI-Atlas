@@ -8,8 +8,6 @@ import { isConsoleError, isConsoleWarning } from '../browser/driver';
 import { isPathInside } from '../core/paths';
 import type { ParsedQaResult } from './qa-result';
 
-export const hasPngSignature = validPngFile;
-
 function inconclusive(parsed: ParsedQaResult, summary: string, errors: string[]): ParsedQaResult {
   return {
     ...parsed,
@@ -70,7 +68,7 @@ export function validateScreenshotEvidence(
         && item.sha256 === createHash('sha256').update(readFileSync(realScreenshot)).digest('hex'))) {
         errors.push(`Screenshot evidence ${evidence.id} was not captured by this run or changed after capture`);
       }
-      if (!hasPngSignature(realScreenshot)) {
+      if (!validPngFile(realScreenshot)) {
         errors.push(`Screenshot evidence ${evidence.id} is not a valid PNG file`);
       }
     } catch {
@@ -90,7 +88,7 @@ function nextId(used: Set<string>, base: string): string {
 
 /**
  * The harness reads its separate append-only, run-scoped journal and
- * adds them as evidence. Runtime errors force FAIL; warnings or failed
+ * adds its observations as evidence. Runtime errors force FAIL; warnings or failed
  * requests downgrade PASS to WARNINGS. The agent cannot talk its way past
  * what the browser actually recorded.
  */
