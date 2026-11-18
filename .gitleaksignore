@@ -1,0 +1,6 @@
+# False positives: SHA-256 digests of this repository's own public source files
+# (keys such as api-client.ts) in an earlier docs/performance-current.json revision.
+5350cd3ef9dd768b6c2182188990d91da55d80e4:docs/performance-current.json:generic-api-key:30
+5350cd3ef9dd768b6c2182188990d91da55d80e4:docs/performance-current.json:generic-api-key:41
+5350cd3ef9dd768b6c2182188990d91da55d80e4:docs/performance-current.json:generic-api-key:66
+5350cd3ef9dd768b6c2182188990d91da55d80e4:docs/performance-current.json:generic-api-key:70
