@@ -213,13 +213,24 @@ export function parseQaResult(rawText: string, expectedRunId: string): ParsedQaR
     };
   }
 
+  // A confirmed failure still establishes FAIL when dependent checks could not
+  // run. Use only validated structured signals, never guesses from free text.
+  const envelope = validated.envelope;
+  if (envelope.verdict === 'inconclusive' && (
+    envelope.assertions.some(assertion => assertion.status === 'failed')
+    || envelope.findings.some(finding => finding.severity === 'critical' || finding.severity === 'major')
+  )) {
+    envelope.verdict = 'fail';
+    envelope.summary = `An evidence-backed failure was reported; unexecuted checks do not override it. ${envelope.summary}`.slice(0, 1000);
+  }
+
   return {
     authoritative: true,
-    verdict: validated.envelope.verdict,
-    summary: validated.envelope.summary.trim(),
+    verdict: envelope.verdict,
+    summary: envelope.summary.trim(),
     reportBody: extracted.body || '(Structured QA result completed without a separate narrative.)',
     validationErrors: [],
-    envelope: validated.envelope,
+    envelope,
   };
 }
 

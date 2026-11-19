@@ -210,7 +210,7 @@ function QueryView({ project, onNavigate }: { project: ProjectInfo; onNavigate: 
 
   return (
     <div>
-      <div className="row">
+      <div className="row query-controls">
         <input className="search" aria-label="Ask Atlas" style={{ marginBottom: 0 }} placeholder='e.g. "where is the note title shown?"' value={question}
           onChange={e => setQuestion(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && question.trim()) void runLocal(); }} />
         <button className="btn primary" disabled={!question.trim()} onClick={runLocal}>Search atlas</button>
@@ -219,7 +219,9 @@ function QueryView({ project, onNavigate }: { project: ProjectInfo; onNavigate: 
           {busy ? 'Asking...' : 'Ask LLM'}
         </button>
       </div>
-      <p className="meta">Search is instant and offline. "Ask LLM" sends the question to your configured provider and only accepts answers that cite real atlas IDs.</p>
+      <p className="meta">Search is instant and offline. {project.askEnabled
+        ? 'Ask LLM uses your configured provider and requires atlas citations.'
+        : <>Ask LLM is disabled. Start the viewer with <code>--allow-ask</code> to enable it.</>}</p>
       {error && <p className="error">{error}</p>}
       {answer && <div className="detail"><Markdown text={answer.answer} /><div>{answer.citations.map(id => <IdChip key={id} id={id} onNavigate={onNavigate} />)}</div></div>}
       {local && !answer && <QueryResultView result={local} onNavigate={onNavigate} />}

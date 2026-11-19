@@ -1,10 +1,10 @@
 import { afterEach, expect, test } from 'bun:test';
-import { readFile } from 'node:fs/promises';
+import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { cleanupTempDirs, tempDir } from '../../tests/helpers';
 import { runCliAgent } from './cli-process';
 import { buildClaudeArgs, createClaudeStreamState, handleClaudeEvent } from './claude';
-import { buildCodexArgs, createCodexStreamState, handleCodexEvent } from './codex';
+import { buildCodexArgs, CodexProvider, createCodexStreamState, handleCodexEvent } from './codex';
 
 afterEach(cleanupTempDirs);
 
@@ -20,10 +20,41 @@ test('subprocess runner streams UTF-8 NDJSON, tolerates noise, and redacts saved
   const result = await runCliAgent({ args: [process.execPath, '-e', source], stdinText: 'task', cwd, timeoutMs: 5000,
     onEvent: event => events.push(event), transcriptPath, redactValues: ['local-test-token'] });
   expect(result).toMatchObject({ exitCode: 0, timedOut: false, aborted: false });
-  expect(events).toEqual([{ type: 'message', text: 'café local-test-token' }, { type: 'final', text: 'done' }]);
+  expect(events).toEqual([{ type: 'message', text: 'café <redacted-token>' }, { type: 'final', text: 'done' }]);
   const saved = await readFile(transcriptPath, 'utf8');
   expect(saved).not.toContain('local-test-token');
   expect(saved).toContain('<redacted-token>');
+});
+
+test.each(['claude', 'codex'])('%s redacts before tool-summary truncation, including transcripts and stderr', async provider => {
+  const cwd = tempDir();
+  const transcriptPath = join(cwd, 'events.ndjson');
+  const token = 'synthetic-scoped-token-'.repeat(8);
+  const command = `H='-H content-type:application/json -H x-atlas-qa-token:${token}' curl /api`;
+  const progress: unknown[] = [];
+  const state = provider === 'claude' ? createClaudeStreamState() : createCodexStreamState();
+  const events = provider === 'claude'
+    ? [{ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command } },
+      { type: 'text', text: `Token: ${token}; Authorization: Bearer synthetic-auth-value` }] } }]
+    : [{ type: 'item.started', item: { type: 'command_execution', command } },
+      { type: 'item.completed', item: { type: 'reasoning', text: `Token: ${token}; Authorization: Bearer synthetic-auth-value` } }];
+  const source = `process.stdin.resume(); process.stdin.on('end',()=>{
+    for(const event of ${JSON.stringify(events)}) console.log(JSON.stringify(event));
+    process.stderr.write('Authorization: Bearer synthetic-');
+    setTimeout(()=>process.stderr.write('stderr-value\\n'+${JSON.stringify(token)}),10);
+  });`;
+  const result = await runCliAgent({ args: [process.execPath, '-e', source], cwd, stdinText: 'test',
+    timeoutMs: 5000, transcriptPath, redactValues: [token], onEvent(event) {
+      if (provider === 'claude') handleClaudeEvent(event, state as ReturnType<typeof createClaudeStreamState>, e => progress.push(e));
+      else handleCodexEvent(event, state as ReturnType<typeof createCodexStreamState>, e => progress.push(e));
+    } });
+  expect(progress.length).toBeGreaterThan(0);
+  const saved = await readFile(transcriptPath, 'utf8');
+  for (const output of [JSON.stringify(progress), saved, result.stderr]) {
+    expect(output).not.toContain('synthetic-');
+    expect(output).toContain('<redacted-token>');
+  }
+  for (const line of saved.trim().split('\n')) expect(() => JSON.parse(line)).not.toThrow();
 });
 
 test('subprocess runner bounds an unresponsive provider with a timeout', async () => {
@@ -31,6 +62,22 @@ test('subprocess runner bounds an unresponsive provider with a timeout', async (
     cwd: tempDir(), timeoutMs: 50, onEvent() {} });
   expect(result.timedOut).toBe(true);
   expect(result.detached).toBe(false);
+});
+
+test.skipIf(process.platform === 'win32')('Codex redacts its separate last-message file before returning it', async () => {
+  const cwd = tempDir();
+  const binary = join(cwd, 'provider');
+  await writeFile(binary, `#!/usr/bin/env bun
+    import { writeFileSync } from 'node:fs';
+    process.stdin.resume(); process.stdin.on('end', () => {
+      writeFileSync(process.argv[process.argv.indexOf('--output-last-message') + 1],
+        'Token synthetic-run-value; Authorization: Bearer synthetic-auth-value');
+    });`);
+  await chmod(binary, 0o755);
+  const result = await new CodexProvider(binary).run({ cwd, systemPrompt: '', prompt: 'test', timeoutMs: 5000,
+    runtime: { kind: 'qa', token: 'synthetic-run-value' } });
+  expect(result.exitCode).toBe(0);
+  expect(result.finalText).toBe('Token <redacted-token>; Authorization: <redacted-token>');
 });
 
 test('Claude adapter keeps final result, usage, and error state separate', () => {

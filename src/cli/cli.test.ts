@@ -6,6 +6,23 @@ import { runCli } from './cli';
 
 afterEach(cleanupTempDirs);
 
+test.each(['atlas', 'qa'])('%s group help lists only its subcommands without requiring a provider', async group => {
+  for (const flag of ['--help', '-h']) {
+    const capture = collectIo(tempDir());
+    expect(await runCli([group, flag], capture.io)).toBe(0);
+    expect(capture.stderr()).toBe('');
+    expect(capture.stdout()).toContain(`Usage: bun run ${group} <subcommand>`);
+    expect(capture.stdout()).toContain(group === 'atlas' ? 'atlas build' : 'qa run');
+    expect(capture.stdout()).not.toContain(group === 'atlas' ? 'qa run' : 'atlas build');
+  }
+});
+
+test('unknown group subcommands still fail', async () => {
+  const capture = collectIo(tempDir());
+  expect(await runCli(['atlas', 'not-a-command'], capture.io)).toBe(1);
+  expect(capture.stderr()).toContain('Unknown atlas subcommand');
+});
+
 test('CLI help, error handling, and offline JSON commands need no provider', async () => {
   const project = await projectWithAtlas();
   const capture = collectIo(project);

@@ -61,6 +61,37 @@ describe('structured QA results', () => {
     expect(parsed.verdict).toBe('fail');
   });
 
+  test.each(['assertion', 'finding'])('an explicit evidenced %s failure takes precedence over blocked checks', kind => {
+    const value = validPass();
+    value.verdict = 'inconclusive';
+    value.assertions = [{ id: 'assert.open', name: 'Open existing item', status: 'not_run', evidenceIds: [] }];
+    if (kind === 'assertion') (value.assertions as any[]).push({ id: 'assert.list', name: 'Existing items listed',
+      status: 'failed', observed: 'List is empty', evidenceIds: ['shot.home'] });
+    else value.findings = [{ id: 'finding.list', severity: 'major', title: 'Expected items absent',
+      details: 'The required list is empty.', evidenceIds: ['shot.home'] }];
+    const parsed = parseQaResult(report(value), 'run-1');
+    expect(parsed.authoritative).toBe(true);
+    expect(parsed.verdict).toBe('fail');
+    expect(parsed.envelope?.verdict).toBe('fail');
+    expect(parsed.summary).toContain('failure');
+  });
+
+  test('unexecuted checks alone do not prove a product failure', () => {
+    const value = validPass();
+    value.verdict = 'inconclusive';
+    value.assertions = [{ id: 'assert.list', name: 'Existing items listed', status: 'not_run',
+      observed: 'Browser unavailable; cannot determine whether items are missing.', evidenceIds: [] }];
+    expect(parseQaResult(report(value), 'run-1').verdict).toBe('inconclusive');
+  });
+
+  test('an unsupported failure cannot turn INCONCLUSIVE into FAIL', () => {
+    const value = validPass();
+    value.verdict = 'inconclusive';
+    value.assertions = [{ id: 'assert.list', name: 'Existing items listed', status: 'failed', evidenceIds: [] }];
+    expect(parseQaResult(report(value), 'run-1').authoritative).toBe(false);
+    expect(parseQaResult(report(value), 'run-1').verdict).toBe('inconclusive');
+  });
+
   test('rejects assertions and findings that do not cite evidence', () => {
     const value = validPass();
     value.verdict = 'fail';

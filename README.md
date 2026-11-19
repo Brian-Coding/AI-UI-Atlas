@@ -11,7 +11,7 @@ AI-driven browser verification with guardrails: map the app, test a user goal, a
 
 *Scripted demo, real Chromium and validation, no model calls. [MP4](docs/images/atlas-demo.mp4) · [Reproduce](docs/media.md).*
 
-**Measured, bounded claim:** the scripted [six-case benchmark](docs/evals.md) detected 12/12 planted-bug runs with 0/6 false positives on healthy controls. That validates this fixed oracle and harness, not live model quality. Live providers were unavailable for this pass.
+**Measured, bounded claim:** the scripted [six-case benchmark](docs/evals.md) detected 12/12 planted-bug runs with 0/6 false positives on healthy controls. That validates this fixed oracle and harness. After fixing goal substitution, [Linux live-provider runs](docs/evals.md#live-provider-runs) with Codex and Claude each detected 4/4 defects with 0/2 false positives (one repetition per provider). One repetition on six cases is not a model-quality benchmark.
 
 [Architecture](docs/architecture.md) · [Failure modes + tests](docs/FAILURE-MODES.md) · [Decisions](docs/decisions/README.md) · [Team rollout](docs/ADOPTION.md)
 

@@ -87,6 +87,17 @@ try {
     await driver.screenshot(session, { outDir: resolve(import.meta.dir, '../docs/images'), name: 'atlas-viewer' });
   }
   await driver.click(session, 'button.tab:text-is("Ask Atlas")');
+  for (const width of [1440, 390]) {
+    await driver.setViewport(session, width, 900);
+    assert.deepEqual(await driver.evaluate(session, `Array.from(document.querySelectorAll('main .btn')).map(button => {
+      const range = document.createRange(); range.selectNodeContents(button);
+      return range.getClientRects().length;
+    })`), [1, 1], `Ask buttons must stay single-line at ${width}px`);
+    assert.equal(await driver.evaluate(session, 'document.documentElement.scrollWidth <= window.innerWidth'), true);
+  }
+  assert.ok(String(await driver.evaluate(session, "document.querySelector('main .meta')?.textContent")).includes('--allow-ask'));
+  assert.equal(await driver.evaluate(session, "Array.from(document.querySelectorAll('main button')).find(b => b.textContent.trim() === 'Ask LLM')?.disabled"), true);
+  console.log('PASS: Ask labels stay single-line at 1440px and 390px, with a visible disabled-Ask hint');
   await driver.type(session, '[aria-label="Ask Atlas"]', 'where are tags shown?');
   await driver.click(session, 'button:text-is("Search atlas")');
   await driver.waitForReady(session);

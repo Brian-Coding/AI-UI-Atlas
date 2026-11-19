@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test';
-import { readFile, rm, symlink } from 'node:fs/promises';
+import { readFile, readdir, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { cleanupTempDirs, projectWithAtlas, tempDir } from '../../tests/helpers';
 import { FakeBrowserDriver } from '../browser/fake-driver';
@@ -49,6 +49,39 @@ test('harness console errors override an agent PASS', async () => {
   expect(run).toMatchObject({ status: 'completed', verdict: 'fail' });
   expect(run.findings?.some(f => f.id === 'finding.harness-runtime')).toBe(true);
   expect(exitCodeForRun(run)).toBe(1);
+});
+
+test.each(['output', 'throw'])('QA redacts progress, journal evidence and all saved text on %s', async mode => {
+  const opts = options();
+  let token = '';
+  const progress: unknown[] = [];
+  const finalize = opts.driver.finalizeEvidence.bind(opts.driver);
+  opts.driver.finalizeEvidence = async id => {
+    const snapshot = await finalize(id);
+    snapshot.console.push({ level: 'error', text: `x-atlas-qa-token:${token} Authorization: Bearer synthetic-auth-value`, timestamp: Date.now() });
+    return snapshot;
+  };
+  const provider: AgentProvider = { name: 'redaction-fixture', async run(task) {
+    token = task.runtime.token!;
+    const text = `token=${token}; Authorization: Bearer synthetic-auth-value`;
+    task.onProgress?.({ type: 'tool', name: 'Bash', summary: text });
+    task.onProgress?.({ type: 'text', text });
+    task.onProgress?.({ type: 'status', message: text });
+    if (mode === 'throw') throw new Error(text);
+    const result = await opts.provider.run(task);
+    return { ...result, finalText: text + '\n' + result.finalText };
+  } };
+  const outcome = await runQa({ ...opts, provider, onProgress: event => progress.push(event) });
+  expect(outcome.run.verdict).toBe(mode === 'output' ? 'fail' : 'inconclusive');
+  const outputs = [JSON.stringify(progress), JSON.stringify(outcome.run)];
+  for (const file of await readdir(outcome.runDir)) {
+    if (/\.(md|json|ndjson)$/.test(file)) outputs.push(await readFile(join(outcome.runDir, file), 'utf8'));
+  }
+  expect(token.length).toBeGreaterThan(10);
+  for (const output of outputs) {
+    expect(output.includes(token)).toBe(false);
+    expect(output.includes('synthetic-auth-value')).toBe(false);
+  }
 });
 
 test.each(['console', 'network', 'incomplete', 'screenshot', 'healthy'] as const)(

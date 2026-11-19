@@ -1,5 +1,6 @@
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { redactData, redactSecrets } from '../core/redact';
 import {
   createCliEnv,
   createProcessUnwindSignal,
@@ -18,9 +19,9 @@ export interface CliRunOptions {
   timeoutMs: number;
   signal?: AbortSignal;
   env?: Record<string, string | undefined>;
-  /** Called for every parsed NDJSON line on stdout. */
+  /** Called for every parsed NDJSON line on stdout, after credential redaction. */
   onEvent(event: any): void;
-  /** Raw stdout lines are appended here when set. */
+  /** Credential-redacted stdout lines are appended here when set. */
   transcriptPath?: string;
   redactValues?: string[];
 }
@@ -55,7 +56,8 @@ export async function runCliAgent(options: CliRunOptions): Promise<CliRunOutcome
     if (!options.transcriptPath) return;
     try {
       mkdirSync(dirname(options.transcriptPath), { recursive: true });
-      for (const value of options.redactValues ?? []) if (value) line = line.split(value).join('<redacted-token>');
+      try { line = JSON.stringify(redactData(JSON.parse(line), options.redactValues)); }
+      catch { line = redactSecrets(line, options.redactValues); }
       appendFileSync(options.transcriptPath, line.endsWith('\n') ? line : `${line}\n`);
     } catch { /* transcripts are best effort */ }
   };
@@ -121,26 +123,44 @@ export async function runCliAgent(options: CliRunOptions): Promise<CliRunOutcome
       const reader = (proc.stderr as ReadableStream<Uint8Array>).getReader();
       const decoder = new TextDecoder();
       let tail = '';
+      let pending = '';
+      let droppingLine = false;
+      const append = (line: string) => {
+        tail = (tail + redactSecrets(line, options.redactValues)).slice(-STDERR_TAIL_CHARS);
+      };
       try {
         while (true) {
           const next = await waitForOperationOrUnwind(reader.read(), unwind);
           if (next.status === 'unwound' || next.value.done) break;
-          tail += decoder.decode(next.value.value, { stream: true });
-          if (tail.length > STDERR_TAIL_CHARS) tail = tail.slice(-STDERR_TAIL_CHARS);
+          pending += decoder.decode(next.value.value, { stream: true });
+          const lines = pending.split('\n');
+          pending = lines.pop()!;
+          for (const line of lines) {
+            if (!droppingLine) append(line + '\n');
+            droppingLine = false;
+          }
+          // Do not expose a credential fragment by cutting a raw line in half.
+          if (pending.length > MAX_LINE_CHARS) {
+            if (!droppingLine) append('[oversized stderr line omitted]\n');
+            pending = '';
+            droppingLine = true;
+          }
         }
       } catch { /* stream closed */ } finally {
         if (unwind.isTriggered()) void reader.cancel().catch(() => {});
         try { reader.releaseLock(); } catch {}
       }
-      return tail + decoder.decode();
+      if (!droppingLine) append(pending + decoder.decode());
+      return tail;
     })();
 
     const handle = (event: any) => {
-      try { options.onEvent(event); } catch { /* a bad event must not kill the run */ }
+      try { options.onEvent(redactData(event, options.redactValues)); } catch { /* a bad event must not kill the run */ }
     };
     const reader = (proc.stdout as ReadableStream<Uint8Array>).getReader();
     const decoder = new TextDecoder();
     let leftover = '';
+    let droppingStdoutLine = false;
     try {
       while (true) {
         const next = await waitForOperationOrUnwind(reader.read(), unwind);
@@ -148,12 +168,23 @@ export async function runCliAgent(options: CliRunOptions): Promise<CliRunOutcome
         const text = decoder.decode(next.value.value, { stream: true });
         leftover += text;
         const lines = leftover.split('\n');
-        for (const line of lines.slice(0, -1)) if (line.trim()) transcript(line);
-        leftover = parseNdjsonLines(leftover, handle);
-        if (leftover.length > MAX_LINE_CHARS) leftover = '';
+        leftover = lines.pop()!;
+        for (const line of lines) {
+          if (!droppingStdoutLine && line.length <= MAX_LINE_CHARS && line.trim()) {
+            transcript(line);
+            parseNdjsonLines(line + '\n', handle);
+          }
+          droppingStdoutLine = false;
+        }
+        if (droppingStdoutLine || leftover.length > MAX_LINE_CHARS) {
+          leftover = '';
+          droppingStdoutLine = true;
+        }
       }
-      if (leftover.trim()) transcript(leftover);
-      flushNdjsonLeftover(leftover, handle);
+      if (!droppingStdoutLine) {
+        if (leftover.trim()) transcript(leftover);
+        flushNdjsonLeftover(leftover, handle);
+      }
     } finally {
       if (unwind.isTriggered()) void reader.cancel().catch(() => {});
       try { reader.releaseLock(); } catch {}

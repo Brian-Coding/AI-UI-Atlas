@@ -2,6 +2,7 @@ import { reportedNumber, reportedSum } from './usage';
 import { existsSync } from 'node:fs';
 import { extname, win32 as win32Path } from 'node:path';
 import { ArgvTooLongError, resolveCliBinary } from '../core/process';
+import { redactSecrets } from '../core/redact';
 import { runCliAgent } from './cli-process';
 import { sanitizeCliText, summarizeToolInput } from './stream-utils';
 import type { AgentProvider, AgentResult, AgentTask, AgentUsage } from './types';
@@ -153,7 +154,8 @@ export class ClaudeProvider implements AgentProvider {
       };
     } catch (error) {
       const message = error instanceof ArgvTooLongError || error instanceof Error ? error.message : String(error);
-      return { finalText: '', exitCode: null, timedOut: false, aborted: false, error: `Could not start Claude CLI: ${message}` };
+      return { finalText: '', exitCode: null, timedOut: false, aborted: false,
+        error: redactSecrets(`Could not start Claude CLI: ${message}`, task.runtime.token ? [task.runtime.token] : []) };
     }
   }
 }

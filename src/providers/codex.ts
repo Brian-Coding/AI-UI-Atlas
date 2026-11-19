@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { extname, join, win32 as win32Path } from 'node:path';
 import { resolveCliBinary } from '../core/process';
+import { redactSecrets } from '../core/redact';
 import { runCliAgent } from './cli-process';
 import { sanitizeCliText, summarizeToolInput } from './stream-utils';
 import type { AgentProvider, AgentResult, AgentTask, AgentUsage } from './types';
@@ -175,7 +176,7 @@ export class CodexProvider implements AgentProvider {
         error = outcome.stderr || `Codex CLI exited with code ${outcome.exitCode} and no output`;
       }
       return {
-        finalText,
+        finalText: redactSecrets(finalText, task.runtime.token ? [task.runtime.token] : []),
         exitCode: outcome.exitCode,
         timedOut: outcome.timedOut,
         aborted: outcome.aborted,
@@ -185,7 +186,8 @@ export class CodexProvider implements AgentProvider {
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return { finalText: '', exitCode: null, timedOut: false, aborted: false, error: `Could not start Codex CLI: ${message}` };
+      return { finalText: '', exitCode: null, timedOut: false, aborted: false,
+        error: redactSecrets(`Could not start Codex CLI: ${message}`, task.runtime.token ? [task.runtime.token] : []) };
     } finally {
       rmSync(scratch, { recursive: true, force: true });
     }

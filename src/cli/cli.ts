@@ -119,6 +119,15 @@ function commandHelp(name: string): string {
   return [`Usage: ${command.usage}`, '', command.summary, '', 'Options:', formatFlagHelp(command.flags)].join('\n');
 }
 
+function groupHelp(group: string): string {
+  return [
+    `Usage: bun run ${group} <subcommand> [options]`, '', 'Subcommands:',
+    ...Object.entries(COMMANDS).filter(([name]) => name.startsWith(`${group} `))
+      .map(([, command]) => `  ${command.usage}\n    ${command.summary}`),
+    '', 'Run a subcommand with --help for its options.',
+  ].join('\n');
+}
+
 function progressPrinter(io: CliIo, label: string, quiet: boolean) {
   return (event: AgentProgressEvent) => {
     if (quiet) return;
@@ -173,6 +182,10 @@ export async function runCli(argv: string[], io: CliIo): Promise<number> {
   }
   if (first === '--version' || first === 'version') {
     io.out('atlas-qa 0.1.0');
+    return 0;
+  }
+  if ((first === 'atlas' || first === 'qa') && (second === '--help' || second === '-h')) {
+    io.out(groupHelp(first));
     return 0;
   }
   const twoWord = `${first} ${second ?? ''}`;

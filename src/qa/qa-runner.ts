@@ -7,6 +7,7 @@ import { existsSync, statSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { ensureStateDir, isSafeId } from '../core/paths';
 import { generateId } from '../core/process';
+import { redactData, redactSecrets } from '../core/redact';
 import { openHarness, type HarnessOptions } from '../harness';
 import type { AgentProgressEvent, AgentProvider } from '../providers/types';
 import { publishedSurfaceIds, recordSurfaceVerifications } from '../atlas/verifications';
@@ -59,7 +60,7 @@ function validateTarget(url: string): string {
 }
 
 function redact(text: string, token: string): string {
-  return token ? text.split(token).join('<redacted-token>') : text;
+  return redactSecrets(text, [token]);
 }
 
 export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
@@ -83,7 +84,7 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
   const atlasRoot = options.useAtlas === false ? undefined
     : existsSync(join(paths.atlasRoot, 'atlas.json')) ? paths.atlasRoot : undefined;
 
-  const run = await store.create({
+  const run = await store.create(redactData({
     schemaVersion: 1,
     id: runId,
     url,
@@ -96,7 +97,7 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
     createdAt: new Date().toISOString(),
     rerunOf: options.rerunOf,
     atlasUsed: !!atlasRoot,
-  });
+  }));
   const runDir = store.runDir(runId);
   const screenshotsDir = store.screenshotsDir(runId);
   const reportPath = join(runDir, 'report.md');
@@ -125,7 +126,7 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
       projectDir,
     });
     await store.writeFile(runId, 'system-prompt.md', redact(systemPrompt, harness.server.token));
-    await store.writeFile(runId, 'prompt.md', prompt);
+    await store.writeFile(runId, 'prompt.md', redact(prompt, harness.server.token));
     await store.update(runId, { status: 'running', startedAt: new Date().toISOString() });
 
     const result = await options.provider.run({
@@ -138,7 +139,7 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
       timeoutMs,
       signal: options.signal,
       transcriptPath: join(runDir, 'transcript.ndjson'),
-      onProgress: options.onProgress,
+      onProgress: event => options.onProgress?.(redactData(event, [harness.server.token])),
       runtime: {
         kind: 'qa',
         apiBase: harness.server.url,
@@ -185,6 +186,9 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
       parsed = validateScreenshotEvidence(parsed, screenshotsDir, paths.runsDir, evidence.screenshots);
     }
 
+    // Journal contents can echo credentials too. Validate original evidence
+    // first, then sanitize every persisted representation of the final result.
+    parsed = redactData(parsed, [harness.server.token]);
     const envelope = parsed.envelope;
     const status: QaRunRecord['status'] = interrupted ? 'cancelled' : parsed.authoritative ? 'completed' : 'failed';
     const finished = await store.update(runId, {
@@ -219,7 +223,7 @@ export async function runQa(options: QaRunOptions): Promise<QaRunOutcome> {
     await store.prune(options.keepRuns ?? DEFAULT_KEEP_RUNS).catch(() => []);
     return { run: finished, runDir, reportPath };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = redact(error instanceof Error ? error.message : String(error), harness.server.token);
     const failed = await store.update(runId, {
       status: 'failed',
       finishedAt: new Date().toISOString(),

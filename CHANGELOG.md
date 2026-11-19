@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased — 2026-11-16
+## Unreleased — 2026-11-18
+
+- Preserve QA goal expectations: prohibit unrequested data setup, fail missing stated state, and retain explicit evidenced failures when dependent checks cannot run.
+- Redact scoped browser tokens and credential headers before progress summaries, transcripts, stderr, and QA/Atlas report/state writes.
+- Support `atlas --help` / `qa --help` and `-h` with group-specific subcommand help.
+- Keep Ask Atlas button labels on one line and explain disabled Ask inline.
+- Record Linux live-provider before/after evaluations, including the original goal-substitution false PASS and the limits of a six-case, one-repetition fixture.
 
 - Reject non-string Ask Atlas citations instead of silently dropping malformed entries.
 - Reject non-object Atlas manifests and checkpoints before publication, preserving the previous bundle.

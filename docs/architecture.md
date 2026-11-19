@@ -55,6 +55,6 @@ The Node worker owns isolated browser sessions and a narrow environment; Bun own
 
 ## What the test layers establish
 
-Unit tests validate parsing, bounds and path rules. Fake-browser integration tests make journal failure and corruption deterministic. Real-process tests prove timeout/root-exit cleanup with inherited pipes. Real Chromium exercises publication, clean/failing QA, tampering and the viewer. The [six-case eval](evals.md) measures the fixed scripted oracle against defects and healthy controls; it does not establish model detection quality. Live Claude/Codex runs and native Windows/macOS checks remain unperformed.
+Unit tests validate parsing, bounds and path rules. Fake-browser integration tests make journal failure and corruption deterministic. Real-process tests prove timeout/root-exit cleanup with inherited pipes. Real Chromium exercises publication, clean/failing QA, tampering and the viewer. The [six-case eval](evals.md) records scripted measurements and Linux live Claude/Codex runs, including a goal-substitution regression. This small fixture does not establish general model detection quality. Native Windows/macOS checks remain unperformed.
 
 [Performance](performance.md) retains current measurements, raw samples, source hashes, and reproduction commands. Historical timing comparisons without retained samples were removed; no speedup is claimed.

@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-11-19T03:09:31.109Z",
+  "commit": "7aa4b26b7e1abbb48f3d29ddb1e89360de5bdd33",
+  "dirty": true,
+  "provider": "codex",
+  "model": "gpt-6.1-terra",
+  "repeats": 1,
+  "timeoutMs": 300000,
+  "environment": {
+    "platform": "linux",
+    "arch": "x64",
+    "kernel": "6.12.113+",
+    "bun": "1.4.4",
+    "node": "v24.22.1"
+  },
+  "scope": "QA only; no Atlas supplied. Scripted results measure harness/oracle behavior, not model quality.",
+  "rows": [
+    {
+      "case": "settings-error",
+      "repeat": 1,
+      "bug": true,
+      "verdict": "fail",
+      "status": "completed",
+      "durationMs": 65044,
+      "inputTokens": 134603,
+      "outputTokens": 2948,
+      "costUsd": null,
+      "report": "runs-DLFFuW/project-m6AQ9s/.atlas-qa/runs/20261119-e29ee9f0/report.md",
+      "validationErrors": []
+    },
+    {
+      "case": "settings-silent",
+      "repeat": 1,
+      "bug": true,
+      "verdict": "fail",
+      "status": "completed",
+      "durationMs": 100876,
+      "inputTokens": 179664,
+      "outputTokens": 3934,
+      "costUsd": null,
+      "report": "runs-DLFFuW/project-MGap2Q/.atlas-qa/runs/20261119-97697c0e/report.md",
+      "validationErrors": []
+    },
+    {
+      "case": "notes-empty",
+      "repeat": 1,
+      "bug": true,
+      "verdict": "fail",
+      "status": "completed",
+      "durationMs": 55130,
+      "inputTokens": 93000,
+      "outputTokens": 2397,
+      "costUsd": null,
+      "report": "runs-DLFFuW/project-hucSHP/.atlas-qa/runs/20261119-cba5063a/report.md",
+      "validationErrors": []
+    },
+    {
+      "case": "note-title-empty",
+      "repeat": 1,
+      "bug": true,
+      "verdict": "fail",
+      "status": "completed",
+      "durationMs": 62307,
+      "inputTokens": 114997,
+      "outputTokens": 2569,
+      "costUsd": null,
+      "report": "runs-DLFFuW/project-EmeePD/.atlas-qa/runs/20261119-14e92880/report.md",
+      "validationErrors": []
+    },
+    {
+      "case": "settings-ok",
+      "repeat": 1,
+      "bug": false,
+      "verdict": "pass",
+      "status": "completed",
+      "durationMs": 73338,
+      "inputTokens": 136803,
+      "outputTokens": 2883,
+      "costUsd": null,
+      "report": "runs-DLFFuW/project-LrspMH/.atlas-qa/runs/20261119-f780c6fa/report.md",
+      "validationErrors": []
+    },
+    {
+      "case": "notes-ok",
+      "repeat": 1,
+      "bug": false,
+      "verdict": "pass",
+      "status": "completed",
+      "durationMs": 61724,
+      "inputTokens": 190947,
+      "outputTokens": 2492,
+      "costUsd": null,
+      "report": "runs-DLFFuW/project-WRuFSD/.atlas-qa/runs/20261119-a6250832/report.md",
+      "validationErrors": []
+    }
+  ],
+  "summary": {
+    "runs": 6,
+    "bugRuns": 4,
+    "controlRuns": 2,
+    "detected": 4,
+    "falsePositives": 0,
+    "detectionRate": 1,
+    "falsePositiveRate": 0,
+    "inconclusive": 0,
+    "warnings": 0,
+    "totalRunMs": 418419
+  }
+}

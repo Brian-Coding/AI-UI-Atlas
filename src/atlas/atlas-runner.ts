@@ -10,6 +10,7 @@ import { join, resolve } from 'node:path';
 import { atomicWriteFile } from '../core/atomic-file';
 import { ensureStateDir, projectPaths } from '../core/paths';
 import { generateId } from '../core/process';
+import { redactData, redactSecrets } from '../core/redact';
 import { openHarness, type HarnessOptions } from '../harness';
 import type { AgentProgressEvent, AgentProvider } from '../providers/types';
 import {
@@ -93,8 +94,9 @@ export async function readAtlasRunState(projectDir: string): Promise<AtlasRunSta
   }
 }
 
-async function writeState(projectDir: string, state: AtlasRunState): Promise<AtlasRunState> {
+async function writeState(projectDir: string, state: AtlasRunState, secrets: readonly string[] = []): Promise<AtlasRunState> {
   await ensureStateDir(projectDir);
+  state = redactData(state, secrets);
   await atomicWriteFile(projectPaths(projectDir).atlasRunFile, JSON.stringify(state, null, 2));
   return state;
 }
@@ -220,12 +222,12 @@ async function discardAtlasRunLocked(projectDir: string): Promise<AtlasRunState>
   return state;
 }
 
-async function refreshCheckpoint(projectDir: string, state: AtlasRunState, onPhase?: AtlasRunOptions['onPhase']): Promise<AtlasRunState> {
+async function refreshCheckpoint(projectDir: string, state: AtlasRunState, onPhase?: AtlasRunOptions['onPhase'], token = ''): Promise<AtlasRunState> {
   const checkpointPath = join(atlasCandidatePaths(projectDir, state.id).candidateRoot, 'checkpoint.json');
   try {
     const checkpoint = JSON.parse(await readFile(checkpointPath, 'utf8')) as { runId?: string; phase?: string; lastActivityAt?: string };
     if (checkpoint.runId !== state.id) return state;
-    const phase = typeof checkpoint.phase === 'string' && checkpoint.phase.trim() ? checkpoint.phase.trim().slice(0, 160) : state.phase;
+    const phase = typeof checkpoint.phase === 'string' && checkpoint.phase.trim() ? redactSecrets(checkpoint.phase.trim(), [token]).slice(0, 160) : state.phase;
     const parsedActivity = checkpoint.lastActivityAt ? Date.parse(checkpoint.lastActivityAt) : NaN;
     const lastActivityAt = Number.isFinite(parsedActivity)
       ? new Date(Math.max(Date.parse(state.lastActivityAt), Math.min(Date.now(), parsedActivity))).toISOString()
@@ -257,7 +259,7 @@ async function executeAtlasTurn(
   let state = initial;
   let polling: Promise<void> = Promise.resolve();
   const poll = () => {
-    polling = polling.then(async () => { state = await refreshCheckpoint(projectDir, state, options.onPhase); });
+    polling = polling.then(async () => { state = await refreshCheckpoint(projectDir, state, options.onPhase, harness.server.token); });
   };
   const timer = setInterval(poll, CHECKPOINT_POLL_MS);
   timer.unref?.();
@@ -284,7 +286,7 @@ async function executeAtlasTurn(
       timeoutMs: options.timeoutMs ?? DEFAULT_ATLAS_TIMEOUT_MS,
       signal: options.signal,
       transcriptPath: join(projectPaths(projectDir).stateDir, 'atlas-transcripts', `${state.id}.ndjson`),
-      onProgress: options.onProgress,
+      onProgress: event => options.onProgress?.(redactData(event, [harness.server.token])),
       runtime: {
         kind: 'atlas',
         apiBase: harness.server.url,
@@ -298,10 +300,10 @@ async function executeAtlasTurn(
       },
     });
     interrupted = result.timedOut || result.aborted;
-    if (result.error) executionError = result.error.slice(0, 2000);
+    if (result.error) executionError = redactSecrets(result.error, [harness.server.token]).slice(0, 2000);
     else if (result.exitCode !== 0 && !interrupted) executionError = `Provider exited with code ${result.exitCode}`;
   } catch (error) {
-    executionError = error instanceof Error ? error.message : String(error);
+    executionError = redactSecrets(error instanceof Error ? error.message : String(error), [harness.server.token]);
   } finally {
     clearInterval(timer);
     poll();
@@ -310,20 +312,20 @@ async function executeAtlasTurn(
     await harness.driver.closeSession(state.browserSessionId).catch(() => {});
     await harness.close();
   }
-  return finalizeAtlasRun(projectDir, state, { interrupted, executionError, onPhase: options.onPhase });
+  return finalizeAtlasRun(projectDir, state, { interrupted, executionError, onPhase: options.onPhase, secrets: [harness.server.token] });
 }
 
 async function finalizeAtlasRun(
   projectDir: string,
   current: AtlasRunState,
-  outcome: { interrupted: boolean; executionError?: string; onPhase?: AtlasRunOptions['onPhase'] },
+  outcome: { interrupted: boolean; executionError?: string; onPhase?: AtlasRunOptions['onPhase']; secrets?: readonly string[] },
 ): Promise<AtlasRunState> {
   let state = await writeState(projectDir, {
     ...current,
     status: 'validating',
     phase: 'validating candidate',
     lastActivityAt: new Date().toISOString(),
-  });
+  }, outcome.secrets);
   outcome.onPhase?.(state.phase, state);
   const validation = await validateAtlasCandidate(projectDir, state.id);
   if (!validation.valid || outcome.interrupted || outcome.executionError) {
@@ -342,7 +344,7 @@ async function finalizeAtlasRun(
       entityCount: validation.entityCount,
       verifiedSurfaceCount: validation.verifiedSurfaceCount,
       pid: undefined,
-    });
+    }, outcome.secrets);
   }
   try {
     const promoted = await promoteAtlasCandidate(projectDir, state.id);
@@ -358,7 +360,7 @@ async function finalizeAtlasRun(
       entityCount: promoted.entityCount,
       verifiedSurfaceCount: promoted.verifiedSurfaceCount,
       pid: undefined,
-    });
+    }, outcome.secrets);
   } catch (error) {
     return writeState(projectDir, {
       ...state,
@@ -367,7 +369,7 @@ async function finalizeAtlasRun(
       finishedAt: new Date().toISOString(),
       error: error instanceof Error ? error.message : String(error),
       pid: undefined,
-    });
+    }, outcome.secrets);
   }
   // Publication succeeded; cleanup problems must not turn it into a failure.
   await retainPublishedVerifications(projectDir).catch(() => {});

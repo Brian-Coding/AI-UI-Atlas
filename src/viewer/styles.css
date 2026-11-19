@@ -54,6 +54,9 @@ main { padding: 20px; max-width: 1280px; width: 100%; margin: 0 auto; }
 
 .search { width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); margin-bottom: 10px; }
 .row { display: flex; gap: 8px; align-items: center; }
+.query-controls { flex-wrap: wrap; }
+.query-controls .search { flex: 1 1 240px; min-width: 0; width: auto; }
+.query-controls .btn { flex: 0 0 auto; white-space: nowrap; }
 .btn { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); padding: 7px 14px; border-radius: 6px; cursor: pointer; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn:disabled { opacity: 0.5; cursor: default; }

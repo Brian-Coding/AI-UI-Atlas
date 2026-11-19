@@ -23,6 +23,29 @@ test('publishes a complete bundle then validates it independently', async () => 
   expect(existsSync(atlasCandidatePaths(opts.projectDir, run.id).candidateRoot)).toBe(false);
 });
 
+test.each(['error', 'throw'])('Atlas redacts progress and saved provider %s', async mode => {
+  const opts = options();
+  let token = '';
+  const progress: unknown[] = [];
+  const provider: AgentProvider = { name: 'redaction-fixture', async run(task) {
+    token = task.runtime.token!;
+    const message = `token=${token}; Proxy-Authorization: Basic synthetic-auth-value`;
+    task.onProgress?.({ type: 'tool', name: 'Bash', summary: message });
+    task.onProgress?.({ type: 'text', text: message });
+    task.onProgress?.({ type: 'status', message });
+    if (mode === 'throw') throw new Error(message);
+    return { finalText: '', exitCode: 1, timedOut: false, aborted: false, error: message };
+  } };
+  const run = await buildAtlas({ ...opts, provider, onProgress: event => progress.push(event) });
+  expect(run.status).toBe('failed');
+  const persisted = await readFile(join(opts.projectDir, '.atlas-qa/atlas-run.json'), 'utf8');
+  for (const output of [JSON.stringify(progress), JSON.stringify(run), persisted]) {
+    expect(output.includes(token)).toBe(false);
+    expect(output.includes('synthetic-auth-value')).toBe(false);
+    expect(output).toContain('<redacted-token>');
+  }
+});
+
 test('invalid update preserves published bytes and can resume with the original model', async () => {
   const opts = options(await projectWithAtlas());
   const published = join(opts.projectDir, 'docs/ui-atlas/atlas.json');

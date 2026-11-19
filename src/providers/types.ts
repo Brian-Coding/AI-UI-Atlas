@@ -28,7 +28,7 @@ export interface AgentTask {
   reasoningEffort?: string;
   timeoutMs: number;
   signal?: AbortSignal;
-  /** Raw provider events are appended here as NDJSON, when set. */
+  /** Credential-redacted provider events are appended here as NDJSON, when set. */
   transcriptPath?: string;
   onProgress?: (event: AgentProgressEvent) => void;
   runtime: AgentRuntimeInfo;

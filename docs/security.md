@@ -30,4 +30,4 @@ Report security issues using the instructions in [SECURITY.md](../SECURITY.md).
 
 ## Process lifetime
 
-POSIX provider launches own process groups; timeout/cancellation cleans up and verifies the group even after a graceful root exit. Windows uses bounded tree termination. Cleanup failures make provider results inconclusive. This is cooperative lifecycle management: a program that deliberately starts a detached OS session can escape a process group. Live providers and Windows/macOS behavior still need separate validation.
+POSIX provider launches own process groups; timeout/cancellation cleans up and verifies the group even after a graceful root exit. Windows uses bounded tree termination. Cleanup failures make provider results inconclusive. This is cooperative lifecycle management: a program that deliberately starts a detached OS session can escape a process group. [Linux live-provider runs](evals.md#live-provider-runs) exercise normal completion; they do not establish adversarial containment. Native Windows/macOS behavior still needs separate validation.
